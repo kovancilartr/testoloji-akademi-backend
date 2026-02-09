@@ -1,0 +1,345 @@
+
+generator client {
+  provider      = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  TEACHER
+  STUDENT
+}
+
+enum SubscriptionTier {
+  FREE
+  BRONZ
+  GUMUS
+  ALTIN
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  name          String?
+  role          Role      @default(TEACHER)
+  tier          SubscriptionTier @default(BRONZ)
+  isActive      Boolean   @default(true)
+  passwordChangeRequired Boolean @default(false)
+  
+  projects      Project[]
+  refreshTokens RefreshToken[]
+  
+  // Öğretmen ise öğrencileri
+  students      Student[] @relation("TeacherStudents")
+  
+  // Öğretmen/Eğitmen ise oluşturduğu kurslar
+  courses       Course[]
+  
+  // Öğrenci ise kendi profili
+  studentProfile Student?
+
+  resetToken        String?   @unique
+  resetTokenExpires DateTime?
+
+  subscriptionStarted DateTime?
+  subscriptionExpires DateTime?
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Project {
+  id          String     @id @default(cuid())
+  name        String
+  userId      String
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  questions   Question[]
+  settings    Settings?
+  
+  // Bu proje bir ödev olarak atandıysa
+  assignments Assignment[]
+
+  // Bu proje bir kurs içeriği ise
+  courseContents CourseContent[]
+ 
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model Question {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  imageUrl  String
+  order     Int
+  width     Float
+  height    Float
+  bottomSpacing Int @default(20)
+  
+  difficulty    Int?
+  correctAnswer String?
+
+  createdAt DateTime @default(now())
+}
+
+model Settings {
+  id             String  @id @default(cuid())
+  projectId      String  @unique
+  project        Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  title          String?
+  subtitle       String?
+  schoolName     String?
+  colCount       Int     @default(2)
+
+  questionSpacing Int     @default(10)
+  watermarkText  String?
+  showDebug      Boolean @default(false)
+  primaryColor   String  @default("#f97316")
+  fontFamily     String  @default("Roboto")
+  
+  showDifficulty Boolean @default(false)
+  showAnswerKey  Boolean @default(false)
+  qrCodeUrl      String?
+  template       String  @default("classic") // classic, modern, compact
+  showCoverPage  Boolean @default(false)
+  coverTitle     String?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+// --------------------------------------
+// AKADEMİ & KOÇLUK MODELLERİ
+// --------------------------------------
+
+model Student {
+  id String @id @default(cuid())
+  
+  // Hangi öğretmene bağlı?
+  teacherId String
+  teacher User @relation("TeacherStudents", fields: [teacherId], references: [id], onDelete: Cascade)
+
+  // Eğer öğrenci sisteme giriş yapacaksa User tablosu ile eşleşir
+  userId String? @unique
+  user User? @relation(fields: [userId], references: [id])
+
+  name String
+  email String?
+  phone String?
+  gradeLevel String?
+  notes String? // Öğretmen notları
+  
+  assignments Assignment[]
+  schedules   Schedule[]
+
+  // Kurs katılımı ve ilerleme
+  enrollments CourseEnrollment[]
+  contentProgress ContentProgress[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Assignment {
+  id String @id @default(cuid())
+  
+  studentId String
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  title String
+  description String?
+  
+  type AssignmentType @default(CUSTOM)
+  status AssignmentStatus @default(PENDING)
+  
+  // İçerik (Opsiyonel)
+  projectId String?
+  project Project? @relation(fields: [projectId], references: [id]) // Testoloji projesi
+  
+  contentId String? // Bağlı kurs içeriği ID'si
+  content   CourseContent? @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  
+  externalUrl String? // Youtube video, makale linki
+  
+  dueDate DateTime?
+  duration Int? @default(0) // Dakika (0 = limitsiz)
+  allowedAttempts Int @default(1)
+  attemptCount Int @default(0)
+
+  completedAt DateTime?
+  
+  grade Float? // 0-100 arası puan
+  correctCount Int? // Doğru sayısı
+  incorrectCount Int? // Yanlış sayısı
+  
+  answers Json? // Öğrenci cevapları
+  feedback String? // Öğretmen geri bildirimi
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Schedule {
+  id String @id @default(cuid())
+  
+  studentId String
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  // Belirli bir tarih için (örn: 2026-02-10)
+  date DateTime?
+  
+  // VEYA haftalık tekrarlayan program için (1=Pazartesi, 7=Pazar)
+  dayOfWeek Int?
+  
+  startTime String? // "14:00"
+  endTime String?   // "15:00"
+  
+  activity String // "Matematik Etüdü", "Video İzleme"
+  isCompleted Boolean @default(false)
+
+  // Eğer kurs içeriği ise
+  courseId String?
+  contentId String?
+  content   CourseContent? @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// --------------------------------------
+// LMS (KURS) MODELLERİ
+// --------------------------------------
+
+model Course {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  thumbnailUrl String?
+  
+  instructorId String
+  instructor   User    @relation(fields: [instructorId], references: [id])
+
+  isPublished Boolean @default(false)
+  
+  modules     CourseModule[]
+  enrollments CourseEnrollment[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model CourseModule {
+  id        String   @id @default(cuid())
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  
+  title     String
+  order     Int      @default(0)
+  
+  contents  CourseContent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CourseContent {
+  id        String   @id @default(cuid())
+  moduleId  String
+  module    CourseModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  
+  title     String
+  type      ContentType
+  order     Int      @default(0)
+  
+  // İçerik detayları
+  url       String?  // Video URL, PDF URL
+  projectId String?  // Bağlı Testoloji Projesi (Eğer type == TEST ise)
+  project   Project? @relation(fields: [projectId], references: [id])
+  
+  duration     Int? @default(0) // Dakika
+  attemptLimit Int? @default(0) // Hak Sayısı
+
+  progress  ContentProgress[]
+  assignments Assignment[]
+  schedules   Schedule[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CourseEnrollment {
+  id        String   @id @default(cuid())
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  enrolledAt  DateTime @default(now())
+  completedAt DateTime?
+
+  @@unique([courseId, studentId])
+}
+
+model ContentProgress {
+  id        String   @id @default(cuid())
+  contentId String
+  content   CourseContent @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  status    ProgressStatus @default(NOT_STARTED)
+  
+  updatedAt DateTime @updatedAt
+
+  @@unique([contentId, studentId])
+}
+
+// --------------------------------------
+// ENUM TANIMLARI
+// --------------------------------------
+
+enum AssignmentType {
+  TEST     // Testoloji testi
+  VIDEO    // Video izleme ödevi
+  READING  // Okuma ödevi
+  CUSTOM   // Serbest görev
+}
+
+enum AssignmentStatus {
+  PENDING     // Bekliyor
+  IN_PROGRESS // Başlandı
+  COMPLETED   // Tamamlandı
+  OVERDUE     // Süresi geçti
+}
+
+enum ContentType {
+  VIDEO
+  PDF
+  TEST
+  TEXT
+}
+
+enum ProgressStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
