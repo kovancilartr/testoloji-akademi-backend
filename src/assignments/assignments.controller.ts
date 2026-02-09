@@ -6,13 +6,16 @@ import { CreateAssignmentsDto } from './dto/create-assignments.dto';
 import { UpdateAssignmentDto } from './dto/update-assignment.dto';
 import { SubmitAssignmentDto } from './dto/submit-assignment.dto';
 import { Role } from '@prisma/client';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
 
 @Controller('assignments')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class AssignmentsController {
     constructor(private readonly assignmentsService: AssignmentsService) { }
 
     @Get()
+    @Roles(Role.TEACHER, Role.ADMIN, Role.STUDENT)
     async listAssignments(
         @GetUser('userId') userId: string,
         @GetUser('role') role: Role,
@@ -22,11 +25,13 @@ export class AssignmentsController {
     }
 
     @Post()
+    @Roles(Role.TEACHER, Role.ADMIN)
     async createAssignments(@Body() dto: CreateAssignmentsDto) {
         return this.assignmentsService.createAssignments(dto);
     }
 
     @Delete(':id')
+    @Roles(Role.TEACHER, Role.ADMIN)
     async deleteAssignment(
         @GetUser('userId') userId: string,
         @Param('id') assignmentId: string,
@@ -35,6 +40,7 @@ export class AssignmentsController {
     }
 
     @Patch(':id')
+    @Roles(Role.TEACHER, Role.ADMIN)
     async updateAssignment(
         @GetUser('userId') userId: string,
         @Param('id') assignmentId: string,
@@ -44,6 +50,7 @@ export class AssignmentsController {
     }
 
     @Post(':id/submit')
+    @Roles(Role.STUDENT, Role.TEACHER, Role.ADMIN)
     async submitAssignment(
         @GetUser('userId') userId: string,
         @Param('id') assignmentId: string,
@@ -53,6 +60,7 @@ export class AssignmentsController {
     }
 
     @Get(':id')
+    @Roles(Role.TEACHER, Role.ADMIN, Role.STUDENT)
     async getAssignmentResult(
         @GetUser('userId') userId: string,
         @GetUser('role') role: Role,

@@ -4,13 +4,16 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetUser } from '../common/decorators/get-user.decorator';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
 import { Role } from '@prisma/client';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
 
 @Controller('schedule')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class SchedulesController {
     constructor(private readonly schedulesService: SchedulesService) { }
 
     @Get()
+    @Roles(Role.TEACHER, Role.ADMIN, Role.STUDENT)
     async getSchedule(
         @GetUser('userId') userId: string,
         @GetUser('role') role: Role,
@@ -20,6 +23,7 @@ export class SchedulesController {
     }
 
     @Post()
+    @Roles(Role.TEACHER, Role.ADMIN)
     async createItem(
         @GetUser('userId') userId: string,
         @Body() dto: CreateScheduleDto,
@@ -28,6 +32,7 @@ export class SchedulesController {
     }
 
     @Delete(':id')
+    @Roles(Role.TEACHER, Role.ADMIN)
     async deleteItem(
         @GetUser('userId') userId: string,
         @Param('id') id: string,
@@ -36,6 +41,7 @@ export class SchedulesController {
     }
 
     @Patch(':id/complete')
+    @Roles(Role.TEACHER, Role.ADMIN, Role.STUDENT)
     async toggleComplete(
         @GetUser('userId') userId: string,
         @GetUser('role') role: Role,
