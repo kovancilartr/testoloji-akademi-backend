@@ -16,17 +16,14 @@ Testoloji Akademi API, eğitim süreçlerini yönetmek, kurs içerikleri oluştu
 ### 📚 Akademi & Kurs Yönetimi
 *   **Esnek Müfredat Yapısı:** Kurs -> Bölüm (Module) -> İçerik (Content) hiyerarşisi.
 *   **Çoklu İçerik Desteği:** Video dersler, PDF dökümanları ve interaktif Testler.
-*   **Gelişmiş Sıralama:** Sürükle-bırak işlemleri için optimize edilmiş veritabanı işlemler (Prisma Transactions).
-*   **Yayın Kontrolü:** Kursları taslak modunda hazırlama ve tek tıkla öğrencilere açma.
+*   **Gelişmiş Sıralama:** Sürükle-bırak işlemleri için optimize edilmiş veritabanı işlemleri (Prisma Transactions).
 
 ### 📊 Performans Analizi & Raporlama
 *   **Detaylı İstatistikler:** Doğru, Yanlış ve Net (4Y 1D) hesaplama algoritmaları.
 *   **Sınıf Genel Durumu:** Öğretmenler için sınıf başarısı ve gelişim trendleri.
 *   **Öğrenci Karnesi:** Her öğrenci için geçmiş sınav başarıları ve gelişim grafikleri.
 
-### 👥 Öğrenci Yönetimi
-*   **Dinamik Kayıt:** Öğrencileri tekil veya toplu olarak kurslara atama/çıkarma.
-*   **İlerleme Takibi:** Hangi öğrencilerin hangi içerikleri tamamladığını anlık görme.
+---
 
 ## 🛠️ Teknoloji Yığını
 
@@ -36,44 +33,81 @@ Testoloji Akademi API, eğitim süreçlerini yönetmek, kurs içerikleri oluştu
 *   **Validation:** `class-validator` & `class-transformer`
 *   **Security:** Passport JWT, Bcrypt
 
-## 🚀 Hızlı Başlangıç
+---
 
-### Gereksinimler
-*   Node.js v18+
-*   PostgreSQL Database
+## 📖 API Endpoint Dokümantasyonu
 
-### Kurulum Adımları
+Tüm API uçları (Auth hariç) Header'da `Authorization: Bearer <token>` gerektirir.
 
-1.  **Bağımlılıkları Yükleyin:**
-    ```bash
-    npm install
-    ```
+### 🔑 Kimlik Doğrulama (`/auth`)
+| Method | Endpoint | Erişim | Açıklama |
+| :--- | :--- | :--- | :--- |
+| POST | `/register` | Public | Yeni kullanıcı kaydı oluşturur. |
+| POST | `/login` | Public | Kullanıcı girişi ve JWT token üretimi. |
+| POST | `/refresh` | Public | Refresh token ile yeni access token alır. |
+| POST | `/logout` | Public | Oturumu sonlandırır. |
+| GET | `/me` | Herkes | Mevcut kullanıcı profil bilgilerini döner. |
+| PATCH | `/change-password` | Herkes | Şifre güncelleme işlemi. |
 
-2.  **Çevresel Değişkenleri Ayarlayın (.env):**
-    ```env
-    DATABASE_URL="postgresql://user:password@localhost:5432/testoloji"
-    JWT_SECRET="gizli-anahtar"
-    ```
+### 👥 Kullanıcı Yönetimi (`/users`)
+| Method | Endpoint | Erişim | Açıklama |
+| :--- | :--- | :--- | :--- |
+| GET | `/` | ADMIN | Sistemdeki tüm kullanıcıları listeler. |
+| GET | `/stats` | ADMIN | Genel sistem istatistiklerini (kullanıcı sayısı vb.) döner. |
+| PATCH | `/:id/role` | ADMIN | Kullanıcı rolünü veya abonelik paketini günceller. |
+| PATCH | `/:id/status` | ADMIN | Kullanıcı hesabını dondurur/etkinleştirir. |
+| DELETE | `/:id` | ADMIN | Kullanıcı kaydını sistemden siler. |
 
-3.  **Veritabanı Şemasını Hazırlayın:**
-    ```bash
-    npx prisma generate
-    npx prisma db push
-    ```
+### 🎓 Akademi & Öğrenci Yönetimi (`/academy`)
+| Method | Endpoint | Erişim | Açıklama |
+| :--- | :--- | :--- | :--- |
+| POST | `/students` | TEACHER, ADMIN | Yeni bir öğrenci kaydı oluşturur. |
+| GET | `/students` | TEACHER, ADMIN | Öğretmene bağlı öğrencileri listeler. |
+| GET | `/students/:id` | TEACHER, ADMIN | Belirli bir öğrencinin detaylı bilgilerini döner. |
+| PATCH | `/students/:id` | TEACHER, ADMIN | Öğrenci bilgilerini günceller. |
+| DELETE | `/students/:id` | TEACHER, ADMIN | Öğrenci kaydını siler. |
 
-4.  **Uygulamayı Başlatın:**
-    ```bash
-    npm run start:dev
-    ```
+### 📚 Kurs & Müfredat Yönetimi (`/courses`)
+| Method | Endpoint | Erişim | Açıklama |
+| :--- | :--- | :--- | :--- |
+| GET | `/admin/all` | ADMIN | Tüm sistem kurslarını listeler. |
+| GET | `/my-courses` | STUDENT | Öğrencinin kayıtlı olduğu kursları listeler. |
+| POST | `/` | TEACHER, ADMIN | Yeni kurs oluşturur. |
+| POST | `/:id/modules` | TEACHER, ADMIN | Kursa yeni bölüm (modül) ekler. |
+| POST | `/modules/:id/contents` | TEACHER, ADMIN | Bölüme yeni içerik (video/pdf/test) ekler. |
+| POST | `/:id/enroll` | TEACHER, ADMIN | Öğrenciyi kursa kaydeder. |
 
-## 📖 API Dokümantasyonu
+### 📝 Ödev Sistemi (`/assignments`)
+| Method | Endpoint | Erişim | Açıklama |
+| :--- | :--- | :--- | :--- |
+| GET | `/` | Herkes | Atanmış ödevleri listeler. |
+| POST | `/` | TEACHER, ADMIN | Bir veya birden fazla öğrenciye ödev atar. |
+| POST | `/:id/submit` | Herkes | Ödev cevaplarını gönderir ve değerlendirir. |
+| GET | `/:id` | Herkes | Ödev sonucunu ve detaylarını döner. |
 
-Backend servisleri aşağıdaki temel modüllerden oluşmaktadır:
-*   `/auth`: Kayıt, Giriş ve Yetkilendirme işlemleri.
-*   `/courses`: Kurs oluşturma, güncelleme ve yayınlama.
-*   `/modules`: Kurs bölümlerinin yönetimi ve sıralanması.
-*   `/assignments`: Sınav atamaları ve öğrenci cevaplarının değerlendirilmesi.
-*   `/analytics`: Öğretmen ve öğrenciler için dashboard verileri.
+### 📅 Ders Programı (`/schedule`)
+| Method | Endpoint | Erişim | Açıklama |
+| :--- | :--- | :--- | :--- |
+| GET | `/` | Herkes | Kişisel veya öğrenci takvimini döner. |
+| POST | `/` | TEACHER, ADMIN | Takvime yeni bir çalışma/ders ekler. |
+| DELETE | `/:id` | TEACHER, ADMIN | Takvim öğesini siler. |
+| PATCH | `/:id/complete` | Herkes | Görevi tamamlandı olarak işaretler. |
+
+### 🧠 Soru Bankası & Projeler (`/projects` & `/questions`)
+| Method | Endpoint | Erişim | Açıklama |
+| :--- | :--- | :--- | :--- |
+| POST | `/projects` | Herkes | Yeni bir test projesi oluşturur. |
+| POST | `/questions/upload` | Herkes | Projeye tekil soru (görsel) yükler. |
+| POST | `/questions/bulk-upload` | Herkes | Çoklu soru yükleme işlemi başlatır. |
+| POST | `/questions/reorder` | Herkes | Proje içindeki soru sıralamasını günceller. |
+
+---
+
+## 🚀 Kurulum & Çalıştırma
+
+1.  **Bağımlılıklar:** `npm install`
+2.  **Veritabanı:** `.env` dosyasını oluşturun ve `npx prisma db push` çalıştırın.
+3.  **Başlat:** `npm run start:dev`
 
 ---
 ## 📝 Lisans
