@@ -1,13 +1,17 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Role } from '@prisma/client';
+import { Role, NotificationType } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class AcademyService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private notificationsService: NotificationsService
+    ) { }
 
     async createStudent(teacherId: string, dto: CreateStudentDto) {
         const { name, gradeLevel, email, phone, notes } = dto;
@@ -85,10 +89,28 @@ export class AcademyService {
     }
 
     async updateStudent(teacherId: string, studentId: string, dto: UpdateStudentDto) {
-        return await this.prisma.student.update({
+        const student = await this.prisma.student.findFirst({
+            where: { id: studentId, teacherId }
+        });
+
+        if (!student) throw new NotFoundException('Öğrenci bulunamadı.');
+
+        const updatedStudent = await this.prisma.student.update({
             where: { id: studentId, teacherId },
             data: dto,
         });
+
+        // Eğer notlar güncellendiyse bildirim gönder
+        if (dto.notes && dto.notes !== student.notes && updatedStudent.userId) {
+            await this.notificationsService.create(updatedStudent.userId, {
+                title: 'Yeni Koçluk Notu',
+                message: 'Öğretmeniniz sizin için yeni bir koçluk notu ekledi.',
+                type: NotificationType.COACHING_NOTE,
+                link: '/dashboard/student'
+            });
+        }
+
+        return updatedStudent;
     }
 
     async deleteStudent(teacherId: string, studentId: string) {

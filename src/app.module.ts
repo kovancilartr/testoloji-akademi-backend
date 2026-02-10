@@ -14,6 +14,7 @@ import { SchedulesModule } from './schedules/schedules.module';
 import { SettingsModule } from './settings/settings.module';
 import { ToolsModule } from './tools/tools.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -29,7 +30,8 @@ import { AnalyticsModule } from './analytics/analytics.module';
     SchedulesModule,
     SettingsModule,
     ToolsModule,
-    AnalyticsModule
+    AnalyticsModule,
+    NotificationsModule
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -2,11 +2,15 @@ import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/commo
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateAssignmentsDto } from './dto/create-assignments.dto';
 import { UpdateAssignmentDto } from './dto/update-assignment.dto';
-import { Role } from '@prisma/client';
+import { Role, NotificationType } from '@prisma/client';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class AssignmentsService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private notificationsService: NotificationsService
+    ) { }
 
     async listAssignments(userId: string, role: Role, studentId?: string) {
         if (role === Role.STUDENT) {
@@ -47,8 +51,9 @@ export class AssignmentsService {
     async createAssignments(dto: CreateAssignmentsDto) {
         const { studentIds, ...rest } = dto;
 
-        return await this.prisma.$transaction(
-            studentIds.map((studentId: string) =>
+        // Ödevleri transaction içinde oluştur
+        const assignments = await this.prisma.$transaction(
+            studentIds.map((studentId) =>
                 this.prisma.assignment.create({
                     data: {
                         ...rest,
@@ -56,9 +61,42 @@ export class AssignmentsService {
                         dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
                         status: 'PENDING',
                     },
-                }),
-            ),
+                    include: {
+                        student: {
+                            select: {
+                                id: true,
+                                userId: true,
+                                name: true
+                            }
+                        }
+                    }
+                })
+            )
         );
+
+        // Bildirimleri asenkron olarak güvenli bir şekilde gönder
+        const notificationPromises = assignments.map(async (assignment) => {
+            const userId = assignment.student?.userId;
+            if (userId) {
+                try {
+                    await this.notificationsService.create(userId, {
+                        title: 'Yeni Ödev Atandı',
+                        message: `"${assignment.title}" başlıklı yeni bir ödeviniz var.`,
+                        type: NotificationType.ASSIGNMENT_CREATED,
+                        link: assignment.type === 'TEST'
+                            ? `/dashboard/student/exam/${assignment.id}`
+                            : '/dashboard/student/assignments'
+                    });
+                } catch (error) {
+                    console.error(`Notification failed for user ${userId}:`, error);
+                }
+            }
+        });
+
+        // Bildirimlerin bitmesini bekle ama hata alırlarsa genel işlemi bozma
+        await Promise.allSettled(notificationPromises);
+
+        return assignments;
     }
 
     async updateAssignment(teacherId: string, assignmentId: string, dto: UpdateAssignmentDto) {

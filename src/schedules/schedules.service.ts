@@ -1,11 +1,15 @@
 import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
-import { Role } from '@prisma/client';
+import { Role, NotificationType } from '@prisma/client';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class SchedulesService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private notificationsService: NotificationsService
+    ) { }
 
     async getSchedule(userId: string, role: Role, studentId?: string) {
         if (role === Role.STUDENT) {
@@ -59,9 +63,21 @@ export class SchedulesService {
             data.date = new Date(dto.date);
         }
 
-        return await this.prisma.schedule.create({
+        const newItem = await this.prisma.schedule.create({
             data,
         });
+
+        // Bildirim gönder
+        if (student.userId) {
+            await this.notificationsService.create(student.userId, {
+                title: 'Ders Programı Güncellendi',
+                message: `Takviminize yeni bir etkinlik eklendi: ${dto.activity}`,
+                type: NotificationType.SCHEDULE_UPDATED,
+                link: '/dashboard/student/schedule'
+            });
+        }
+
+        return newItem;
     }
 
     async deleteItem(teacherId: string, scheduleId: string) {
