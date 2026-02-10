@@ -29,6 +29,7 @@ model User {
   role          Role      @default(TEACHER)
   tier          SubscriptionTier @default(BRONZ)
   isActive      Boolean   @default(true)
+  hasCoachingAccess Boolean @default(false)
   passwordChangeRequired Boolean @default(false)
   
   projects      Project[]

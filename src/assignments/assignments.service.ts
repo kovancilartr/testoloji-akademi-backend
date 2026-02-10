@@ -191,11 +191,12 @@ export class AssignmentsService {
             throw new ForbiddenException('Maksimum deneme hakkına ulaştınız.');
         }
 
-        const totalQuestions = assignment.project?.questions.length || 0;
+        const isTest = assignment.type === 'TEST';
+        const totalQuestions = isTest ? (assignment.project?.questions.length || 0) : 0;
         let correctCount = 0;
         let incorrectCount = 0;
 
-        if (totalQuestions > 0) {
+        if (isTest && totalQuestions > 0) {
             assignment.project?.questions.forEach((q) => {
                 const answer = answers[q.id];
                 if (answer) {
@@ -208,20 +209,47 @@ export class AssignmentsService {
             });
         }
 
-        const grade = totalQuestions > 0 ? (correctCount / totalQuestions) * 100 : 0;
-        const feedback = `Toplam ${totalQuestions} soruda ${correctCount} doğru. Başarı oranı: %${grade.toFixed(0)}.`;
+        const grade = totalQuestions > 0 ? (correctCount / totalQuestions) * 100 : (isTest ? 0 : 100);
+        const feedback = isTest
+            ? `Toplam ${totalQuestions} soruda ${correctCount} doğru. Başarı oranı: %${grade.toFixed(0)}.`
+            : 'İçerik başarıyla tamamlandı.';
 
         return await this.prisma.assignment.update({
             where: { id: assignmentId },
             data: {
                 status: 'COMPLETED',
                 grade: parseFloat(grade.toFixed(2)),
-                correctCount,
-                incorrectCount,
+                correctCount: isTest ? correctCount : null,
+                incorrectCount: isTest ? incorrectCount : null,
                 completedAt: new Date(),
                 feedback,
-                answers,
+                answers: isTest ? answers : {},
                 attemptCount: { increment: 1 },
+            },
+        });
+    }
+
+    async undoSubmitAssignment(userId: string, assignmentId: string) {
+        const student = await this.prisma.student.findFirst({ where: { userId } });
+        if (!student) throw new NotFoundException('Öğrenci bulunamadı.');
+
+        const assignment = await this.prisma.assignment.findFirst({
+            where: { id: assignmentId, studentId: student.id },
+        });
+
+        if (!assignment) throw new NotFoundException('Ödev bulunamadı.');
+        if (assignment.type === 'TEST') throw new ForbiddenException('Sınav sonuçları geri alınamaz.');
+
+        return await this.prisma.assignment.update({
+            where: { id: assignmentId },
+            data: {
+                status: 'PENDING',
+                completedAt: null,
+                grade: null,
+                correctCount: null,
+                incorrectCount: null,
+                feedback: null,
+                answers: {}, // Using empty object for JSON reset to satisfy types
             },
         });
     }

@@ -15,6 +15,7 @@ export class UsersService {
                 role: true,
                 tier: true,
                 isActive: true,
+                hasCoachingAccess: true, // Include this field
                 subscriptionStarted: true,
                 subscriptionExpires: true,
                 createdAt: true,
@@ -36,12 +37,12 @@ export class UsersService {
                         }
                     }
                 }
-            },
+            } as any,
             orderBy: { createdAt: 'desc' },
         });
 
         // Veriyi frontend'in beklediği formata düzleştir
-        return users.map(user => ({
+        return users.map((user: any) => ({
             ...user,
             teacher: user.studentProfile?.teacher || null
         }));
@@ -77,6 +78,13 @@ export class UsersService {
         return this.prisma.user.update({
             where: { id: userId },
             data: { role },
+        });
+    }
+
+    async updateCoachingAccess(userId: string, hasAccess: boolean) {
+        return this.prisma.user.update({
+            where: { id: userId },
+            data: { hasCoachingAccess: hasAccess } as any,
         });
     }
 

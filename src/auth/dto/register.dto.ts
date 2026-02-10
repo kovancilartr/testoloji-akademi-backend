@@ -14,7 +14,8 @@ export class RegisterDto {
     name: string;
 
     @IsEnum(Role, { message: 'Geçersiz rol.' })
-    role: Role;
+    @IsOptional()
+    role?: Role;
 
     @IsEnum(SubscriptionTier, { message: 'Geçersiz üyelik tipi.' })
     @IsOptional()

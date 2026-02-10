@@ -9,8 +9,10 @@ import { Role } from '@prisma/client';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 
+import { CoachingAccessGuard } from '../auth/guards/coaching-access.guard';
+
 @Controller('assignments')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, CoachingAccessGuard)
 export class AssignmentsController {
     constructor(private readonly assignmentsService: AssignmentsService) { }
 
@@ -57,6 +59,15 @@ export class AssignmentsController {
         @Body() dto: SubmitAssignmentDto,
     ) {
         return this.assignmentsService.submitAssignment(userId, assignmentId, dto.answers);
+    }
+
+    @Post(':id/undo-submit')
+    @Roles(Role.STUDENT, Role.TEACHER, Role.ADMIN)
+    async undoSubmitAssignment(
+        @GetUser('userId') userId: string,
+        @Param('id') assignmentId: string,
+    ) {
+        return this.assignmentsService.undoSubmitAssignment(userId, assignmentId);
     }
 
     @Get(':id')

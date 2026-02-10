@@ -64,6 +64,15 @@ export class UsersController {
         return this.usersService.deleteUser(id);
     }
 
+    @Patch(':id/coaching-access')
+    @Roles(Role.ADMIN)
+    async updateCoachingAccess(
+        @Param('id') id: string,
+        @Body('hasCoachingAccess') hasCoachingAccess: boolean,
+    ) {
+        return this.usersService.updateCoachingAccess(id, hasCoachingAccess);
+    }
+
     @Get('teacher-stats')
     @Roles(Role.TEACHER, Role.ADMIN)
     async getTeacherStats(@GetUser('userId') userId: string) {

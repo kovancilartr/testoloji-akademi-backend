@@ -4,6 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { RegisterDto } from './dto/register.dto';
+import { Role, SubscriptionTier } from '@prisma/client';
 import { LoginDto } from './dto/login.dto';
 
 @Injectable()
@@ -30,8 +31,8 @@ export class AuthService {
                 email: dto.email,
                 password: hashedPassword,
                 name: dto.name,
-                role: dto.role,
-                tier: dto.tier || 'BRONZ',
+                role: dto.role || Role.TEACHER,
+                tier: dto.tier || SubscriptionTier.BRONZ,
             },
         });
 
@@ -113,6 +114,7 @@ export class AuthService {
             email: user.email,
             role: user.role,
             tier: user.tier,
+            hasCoachingAccess: user.hasCoachingAccess,
         };
 
         const [accessToken, refreshToken] = await Promise.all([

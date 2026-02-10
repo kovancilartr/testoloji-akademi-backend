@@ -12,6 +12,7 @@ Testoloji Akademi API, eğitim süreçlerini yönetmek, kurs içerikleri oluştu
 ### 🔐 Gelişmiş Yetkilendirme
 *   **Role-Based Access Control (RBAC):** Admin, Öğretmen ve Öğrenci rolleri için özelleştirilmiş erişim kontrolleri.
 *   **JWT Authentication:** Güvenli oturum yönetimi ve istek doğrulama.
+*   **CoachingAccessGuard:** Eğitmenler için özel koçluk modülü yetki kontrolü.
 
 ### 📚 Akademi & Kurs Yönetimi
 *   **Esnek Müfredat Yapısı:** Kurs -> Bölüm (Module) -> İçerik (Content) hiyerarşisi.
@@ -56,6 +57,7 @@ Tüm API uçları (Auth hariç) Header'da `Authorization: Bearer <token>` gerekt
 | GET | `/stats` | ADMIN | Genel sistem istatistiklerini (kullanıcı sayısı vb.) döner. |
 | PATCH | `/:id/role` | ADMIN | Kullanıcı rolünü veya abonelik paketini günceller. |
 | PATCH | `/:id/status` | ADMIN | Kullanıcı hesabını dondurur/etkinleştirir. |
+| PATCH | `/:id/coaching-access` | ADMIN | Kullanıcıya koçluk modülü yetkisi verir/alır. |
 | DELETE | `/:id` | ADMIN | Kullanıcı kaydını sistemden siler. |
 
 ### 🎓 Akademi & Öğrenci Yönetimi (`/academy`)

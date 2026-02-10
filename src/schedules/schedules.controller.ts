@@ -7,8 +7,10 @@ import { Role } from '@prisma/client';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 
+import { CoachingAccessGuard } from '../auth/guards/coaching-access.guard';
+
 @Controller('schedule')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, CoachingAccessGuard)
 export class SchedulesController {
     constructor(private readonly schedulesService: SchedulesService) { }
 

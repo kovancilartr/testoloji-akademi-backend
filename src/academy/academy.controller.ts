@@ -8,8 +8,10 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '@prisma/client';
 
+import { CoachingAccessGuard } from '../auth/guards/coaching-access.guard';
+
 @Controller('academy')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, CoachingAccessGuard)
 @Roles(Role.TEACHER, Role.ADMIN)
 export class AcademyController {
     constructor(private readonly academyService: AcademyService) { }
