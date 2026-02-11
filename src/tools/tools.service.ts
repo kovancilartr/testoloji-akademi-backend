@@ -7,7 +7,8 @@ import * as fs from 'fs';
 export class ToolsService {
     async magicScan(imagePath: string, roi?: { x: number; y: number; w: number; h: number }) {
         // Path resolution: Works in both dev and dist
-        const scriptPath = path.resolve(__dirname, 'scripts/magic_scan.py');
+        // Path resolution: Always point to src/tools/scripts in local dev
+        const scriptPath = path.resolve(process.cwd(), 'src/tools/scripts/magic_scan.py');
 
         // Try to find venv in project root
         const venvPython = path.resolve(process.cwd(), 'venv/bin/python');

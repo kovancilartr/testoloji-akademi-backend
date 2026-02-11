@@ -179,6 +179,9 @@ def detect_question_blocks(image_path, roi=None):
         print(json.dumps(results))
 
     except Exception as e:
+        import traceback
+        print(f"Python Error: {str(e)}", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
         print(json.dumps([]))
         sys.exit(1)
 
