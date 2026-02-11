@@ -33,6 +33,7 @@ export class ToolsService {
 
         return new Promise((resolve, reject) => {
             const pythonProcess = spawn(pythonCommand, args);
+            console.log(`Executing Magic Scan: ${pythonCommand} ${args.join(' ')}`);
             let dataString = '';
             let errorString = '';
 
