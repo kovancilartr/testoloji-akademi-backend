@@ -30,18 +30,12 @@ export class ToolsController {
         @Body('roiW') roiW?: string,
         @Body('roiH') roiH?: string,
     ) {
-        console.log('🚀 SIHIRLI MAKAS: İstek backend\'e ulaştı.');
-
-        // Ensure uploads directory exists (Multer fix for production)
+        // Ensure uploads directory exists
         if (!fs.existsSync('./uploads')) {
-            console.log('📦 uploads klasörü oluşturuluyor...');
             fs.mkdirSync('./uploads', { recursive: true });
         }
 
-        if (!file) {
-            console.error('❌ Dosya yüklenemedi hatası.');
-            throw new Error('Resim dosyası yüklenemedi.');
-        }
+        if (!file) throw new Error('Resim dosyası yüklenemedi.');
 
         const roi = (roiX && roiY && roiW && roiH) ? {
             x: parseInt(roiX),

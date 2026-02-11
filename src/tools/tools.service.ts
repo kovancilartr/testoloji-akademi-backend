@@ -28,14 +28,7 @@ export class ToolsService {
 
         if (fs.existsSync(venvPython)) {
             pythonCommand = venvPython;
-        } else {
-            // Check if python3 exists, if not fallback to python
-            // (Standard approach for different Linux distros)
-            pythonCommand = 'python3';
         }
-
-        console.log(`CWD: ${process.cwd()}`);
-        console.log(`Using Python Command: ${pythonCommand}`);
 
         const args = [scriptPath, imagePath];
         if (roi) {
