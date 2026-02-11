@@ -22,24 +22,30 @@ RUN npx nest build
 # Stage 2: Production
 FROM node:20-alpine
 
+# Install curl for Coolify healthchecks
+RUN apk add --no-cache curl
+
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
+COPY prisma ./prisma/
 
 # Install only production dependencies
+# Note: We include devDependencies temporarily to run prisma generate if needed, 
+# or we copy the generated client from builder.
 RUN npm install --omit=dev
 
 # Copy built application from builder stage
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
 
-# Create uploads directory if needed
+# Create uploads directory
 RUN mkdir -p uploads
 
 # Expose the API port
 EXPOSE 4000
 
-# Start the application
-CMD ["npm", "run", "start:prod"]
+# Start the application - Entry point is dist/src/main.js
+CMD ["node", "dist/src/main.js"]
