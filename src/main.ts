@@ -10,7 +10,9 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // Global Prefix
-  app.setGlobalPrefix('api');
+  app.setGlobalPrefix('api', {
+    exclude: ['health'],
+  });
 
   // CORS
   app.enableCors();
