@@ -25,8 +25,17 @@ RUN npx nest build
 # Stage 2: Production
 FROM node:20-alpine
 
-# Install curl for Coolify and openssl for Prisma
-RUN apk add --no-cache curl openssl libc6-compat
+# Install curl for Coolify, openssl for Prisma, and Python/OpenCV for Magic Scan
+RUN apk add --no-cache \
+    curl \
+    openssl \
+    libc6-compat \
+    python3 \
+    py3-pip \
+    py3-opencv \
+    py3-numpy \
+    mesa-gl \
+    libstdc++
 
 WORKDIR /app
 
