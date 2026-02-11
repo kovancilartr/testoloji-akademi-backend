@@ -124,9 +124,31 @@ export class AssignmentsService {
                 id: assignmentId,
                 student: { teacherId },
             },
+            include: {
+                student: {
+                    select: {
+                        id: true,
+                        userId: true,
+                    }
+                }
+            }
         });
 
         if (!existing) throw new ForbiddenException('Ödevi silme yetkiniz yok.');
+
+        // Send notification to student if linked to a user
+        const studentUserId = existing.student?.userId;
+        if (studentUserId) {
+            try {
+                await this.notificationsService.create(studentUserId, {
+                    title: 'Ödev İptal Edildi',
+                    message: `"${existing.title}" başlıklı ödeviniz öğretmeniniz tarafından iptal edildi.`,
+                    type: NotificationType.INFO,
+                });
+            } catch (error) {
+                console.warn(`Could not send deletion notification to student ${studentUserId}`, error);
+            }
+        }
 
         return await this.prisma.assignment.delete({
             where: { id: assignmentId },

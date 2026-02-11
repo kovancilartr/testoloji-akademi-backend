@@ -112,5 +112,29 @@ Tüm API uçları (Auth hariç) Header'da `Authorization: Bearer <token>` gerekt
 3.  **Başlat:** `npm run start:dev`
 
 ---
+
+## 🔍 Hata Ayıklama & İzleme (Debug System)
+
+Sistemin arka planındaki verileri hızlıca kontrol etmek, veritabanı ilişkilerini doğrulamak ve teknik sorunları çözmek için özelleştirilmiş hata ayıklama (debug) scriptleri mevcuttur. 
+
+Bu scriptler `scripts/debug/` klasörü altında toplanmıştır.
+
+### 🛠️ Mevcut Scriptler
+
+| Dosya | Açıklama | Çalıştırma Komutu |
+| :--- | :--- | :--- |
+| `debug-system.ts` | **Sistem Özeti:** Genel istatistikler ve son 5 kayıt. | `npx ts-node scripts/debug/debug-system.ts` |
+| `debug-users.ts` | **Yetki Kontrolü:** Roller, abonelikler ve aktiflik. | `npx ts-node scripts/debug/debug-users.ts` |
+| `debug-students.ts` | **Öğrenci Bağları:** Öğrenci-öğretmen ilişkileri. | `npx ts-node scripts/debug/debug-students.ts` |
+| `debug-assignments.ts` | **Ödev Takibi:** Ödev durumları ve başarı oranları. | `npx ts-node scripts/debug/debug-assignments.ts` |
+| `debug-schedules.ts` | **Ders Programı:** Takvim öğeleri ve tamamlanma durumu. | `npx ts-node scripts/debug/debug-schedules.ts` |
+| `debug-courses.ts` | **Kurs Yapısı:** Kurslar, modüller ve müfredat hiyerarşisi. | `npx ts-node scripts/debug/debug-courses.ts` |
+| `debug-projects.ts` | **İçerik Analizi:** Projeler ve içerdiği soru sayıları. | `npx ts-node scripts/debug/debug-projects.ts` |
+| `debug-notifications.ts` | **Bildirimler:** Son bildirimlerin takibi ve durumu. | `npx ts-node scripts/debug/debug-notifications.ts` |
+
+> ⚠️ **Not:** Bu scriptler doğrudan veritabanına sorgu atar. Geliştirme sürecinde veya teknik destek sırasında kullanımı önerilir.
+
+---
+
 ## 📝 Lisans
 Bu proje özel bir mülkiyettir. Tüm hakları saklıdır.
