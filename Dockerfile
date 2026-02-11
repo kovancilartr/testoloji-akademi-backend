@@ -1,6 +1,9 @@
 # Stage 1: Build
 FROM node:20-alpine AS builder
 
+# Install openssl for Prisma
+RUN apk add --no-cache openssl
+
 WORKDIR /app
 
 # Copy package files
@@ -13,7 +16,7 @@ RUN npm install --include=dev
 # Copy source code
 COPY . .
 
-# Generate Prisma Client
+# Generate Prisma Client (openssl must be present here)
 RUN npx prisma generate
 
 # Build the application
@@ -22,8 +25,8 @@ RUN npx nest build
 # Stage 2: Production
 FROM node:20-alpine
 
-# Install curl for Coolify healthchecks
-RUN apk add --no-cache curl
+# Install curl for Coolify and openssl for Prisma
+RUN apk add --no-cache curl openssl libc6-compat
 
 WORKDIR /app
 
@@ -32,8 +35,6 @@ COPY package*.json ./
 COPY prisma ./prisma/
 
 # Install only production dependencies
-# Note: We include devDependencies temporarily to run prisma generate if needed, 
-# or we copy the generated client from builder.
 RUN npm install --omit=dev
 
 # Copy built application from builder stage
