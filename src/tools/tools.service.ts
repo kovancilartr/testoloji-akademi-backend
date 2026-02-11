@@ -34,8 +34,14 @@ export class ToolsService {
         return new Promise((resolve, reject) => {
             const pythonProcess = spawn(pythonCommand, args);
             console.log(`Executing Magic Scan: ${pythonCommand} ${args.join(' ')}`);
+
             let dataString = '';
             let errorString = '';
+
+            pythonProcess.on('error', (err) => {
+                console.error(`❌ FAILED TO START PYTHON PROCESS: ${err.message}`);
+                reject(new InternalServerErrorException('Sunucuda Python başlatılamadı.'));
+            });
 
             pythonProcess.stdout.on('data', (data) => (dataString += data.toString()));
             pythonProcess.stderr.on('data', (data) => (errorString += data.toString()));

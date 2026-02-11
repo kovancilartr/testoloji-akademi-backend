@@ -4,6 +4,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { SkipTransform } from '../common/decorators/skip-transform.decorator';
+import * as fs from 'fs';
 
 @Controller('tools')
 export class ToolsController {
@@ -29,7 +30,18 @@ export class ToolsController {
         @Body('roiW') roiW?: string,
         @Body('roiH') roiH?: string,
     ) {
-        if (!file) throw new Error('Resim dosyası yüklenemedi.');
+        console.log('🚀 SIHIRLI MAKAS: İstek backend\'e ulaştı.');
+
+        // Ensure uploads directory exists (Multer fix for production)
+        if (!fs.existsSync('./uploads')) {
+            console.log('📦 uploads klasörü oluşturuluyor...');
+            fs.mkdirSync('./uploads', { recursive: true });
+        }
+
+        if (!file) {
+            console.error('❌ Dosya yüklenemedi hatası.');
+            throw new Error('Resim dosyası yüklenemedi.');
+        }
 
         const roi = (roiX && roiY && roiW && roiH) ? {
             x: parseInt(roiX),
