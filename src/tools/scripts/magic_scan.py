@@ -38,11 +38,9 @@ def merge_rects_constrained(rects, separation_boundary, tolerance=40):
                     if skip[j]: continue
                     jx1, jy1, jx2, jy2 = boxes[j]
                     
-                    # Vertical Merge with Constraints
-                    # Increased from 50 to 60 to catch options that are slightly further away,
-                    # while relying on the glue_kernel to merge horizontal/close elements first.
+                    # Reduced from 40 to 25 to separate very close questions
                     overlap_x = (max(ix1, jx1) < min(ix2, jx2) + 20)
-                    overlap_y = (max(iy1, jy1) < min(iy2, jy2) + 60)
+                    overlap_y = (max(iy1, jy1) < min(iy2, jy2) + 25)
                     
                     if overlap_x and overlap_y:
                         ix1 = min(ix1, jx1)
@@ -116,11 +114,14 @@ def detect_question_blocks(image_path, roi=None):
             cv2.drawContours(thresh, [c], -1, (0,0,0), 4)
 
         # 5. Connect Components
-        # Increased horizontal kernel (5->20) to better connect options (A B C D) roughly on the same line
-        glue_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (20, 30)) 
+        # Reduced vertical kernel (30->20) to avoid merging vertically close questions
+        glue_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (20, 15)) 
         morph = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, glue_kernel)
-        dilate_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 5))
+        dilate_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
         dilation = cv2.dilate(morph, dilate_kernel, iterations=1)
+        
+        # DEBUG: Save dilation result to see what's happening
+        # cv2.imwrite('debug_dilation.png', dilation)
         
         contours, _ = cv2.findContours(dilation, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         initial_blocks = []
