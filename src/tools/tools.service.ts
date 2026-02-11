@@ -7,8 +7,20 @@ import * as fs from 'fs';
 export class ToolsService {
     async magicScan(imagePath: string, roi?: { x: number; y: number; w: number; h: number }) {
         // Path resolution: Works in both dev and dist
-        // Path resolution: Always point to src/tools/scripts in local dev
-        const scriptPath = path.resolve(process.cwd(), 'src/tools/scripts/magic_scan.py');
+        // Path resolution: Check multiple locations to be robust for local/live
+        const possiblePaths = [
+            path.resolve(process.cwd(), 'src/tools/scripts/magic_scan.py'),
+            path.resolve(process.cwd(), 'dist/tools/scripts/magic_scan.py'),
+            path.resolve(__dirname, 'scripts/magic_scan.py'),
+            path.resolve(__dirname, '../scripts/magic_scan.py'),
+        ];
+
+        const scriptPath = possiblePaths.find(p => fs.existsSync(p));
+
+        if (!scriptPath) {
+            console.error('Magic Scan script not found in:', possiblePaths);
+            throw new InternalServerErrorException('Görüntü işleme betiği bulunamadı.');
+        }
 
         // Try to find venv in project root
         const venvPython = path.resolve(process.cwd(), 'venv/bin/python');
