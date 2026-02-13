@@ -136,7 +136,7 @@ Bu scriptler `scripts/debug/` klasörü altında toplanmıştır.
 
 ---
 
-## 📑 Son Güncellemeler (Bugün)
+## 📑 Son Güncellemeler (13.02.2026)
 
 Bugün sistem genelinde hem backend istatistik altyapısı genişletildi, hem de frontend tarafında performans ve görsel iyileştirmeler yapıldı.
 
