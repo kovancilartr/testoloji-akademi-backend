@@ -31,6 +31,7 @@ model User {
   isActive      Boolean   @default(true)
   hasCoachingAccess Boolean @default(false)
   passwordChangeRequired Boolean @default(false)
+  dailyAiLimit  Int       @default(10) // Admin tarafından ayarlanabilir günlük AI limiti
   
   projects      Project[]
   refreshTokens RefreshToken[]
@@ -54,6 +55,24 @@ model User {
   updatedAt     DateTime  @updatedAt
 
   notifications Notification[]
+  aiUsages      AiUsage[]
+  coachingHistory CoachingHistory[]
+}
+
+// ... (other models)
+
+model AiUsage {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  date      String   // "2024-02-12" formatında gün bilgisi
+  count     Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, date])
 }
 
 model Project {
@@ -194,6 +213,7 @@ model Assignment {
   
   answers Json? // Öğrenci cevapları
   feedback String? // Öğretmen geri bildirimi
+  aiAnalysis String? @db.Text // AI Koç analiz sonucu (kaydedilmiş)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -370,4 +390,45 @@ enum NotificationType {
   ASSIGNMENT_CREATED
   SCHEDULE_UPDATED
   COACHING_NOTE
+}
+
+model CoachingHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  query     String   @db.Text
+  response  String   @db.Text
+  action    String?  // 'chat' veya 'analysis' - mesaj türü
+  assignmentId String? // Hangi sınav için yapılan analiz (opsiyonel)
+  
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([assignmentId])
+}
+
+model SystemSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String   @db.Text
+  isEncrypted Boolean  @default(false)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model AiUsageLog {
+  id               String   @id @default(cuid())
+  model            String
+  promptTokens     Int      @default(0)
+  completionTokens Int      @default(0)
+  totalTokens      Int      @default(0)
+  action           String?
+  userId           String?
+  
+  createdAt        DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([userId])
 }

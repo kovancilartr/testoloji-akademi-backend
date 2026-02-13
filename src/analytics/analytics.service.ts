@@ -99,6 +99,7 @@ export class AnalyticsService {
 
             return {
                 id: ex.id,
+                assignmentId: ex.id,
                 date: ex.completedAt,
                 title: ex.title,
                 grade: ex.grade,
@@ -106,6 +107,7 @@ export class AnalyticsService {
                 wrongCount: wrong,
                 netCount: parseFloat(net.toFixed(2)),
                 totalQuestions: questions.length,
+                hasAiAnalysis: !!(ex as any).aiAnalysis,
                 questions: questions.map(q => ({
                     id: q.id,
                     imageUrl: q.imageUrl,

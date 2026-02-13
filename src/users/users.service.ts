@@ -16,6 +16,7 @@ export class UsersService {
                 tier: true,
                 isActive: true,
                 hasCoachingAccess: true, // Include this field
+                dailyAiLimit: true, // AI günlük limit
                 subscriptionStarted: true,
                 subscriptionExpires: true,
                 createdAt: true,
@@ -108,10 +109,38 @@ export class UsersService {
     }
 
     async getAdminStats() {
-        const [totalUsers, totalProjects, totalQuestions] = await Promise.all([
+        const now = new Date();
+        const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+        const [
+            totalUsers,
+            totalProjects,
+            totalQuestions,
+            totalCourses,
+            totalAssignments,
+            completedAssignments,
+            pendingAssignments,
+            totalCoachingSessions,
+            totalEnrollments,
+            activeUsersLast7Days,
+            newUsersLast30Days,
+        ] = await Promise.all([
             this.prisma.user.count(),
             this.prisma.project.count(),
             this.prisma.question.count(),
+            this.prisma.course.count(),
+            this.prisma.assignment.count(),
+            this.prisma.assignment.count({ where: { status: 'COMPLETED' } }),
+            this.prisma.assignment.count({ where: { status: 'PENDING' } }),
+            this.prisma.coachingHistory.count(),
+            this.prisma.courseEnrollment.count(),
+            this.prisma.user.count({
+                where: { updatedAt: { gte: sevenDaysAgo } },
+            }),
+            this.prisma.user.count({
+                where: { createdAt: { gte: thirtyDaysAgo } },
+            }),
         ]);
 
         const usersByRole = await this.prisma.user.groupBy({
@@ -124,12 +153,43 @@ export class UsersService {
             _count: true,
         });
 
+        // Son 7 günlük kullanıcı kayıt trendi
+        const recentUsers = await this.prisma.user.findMany({
+            where: { createdAt: { gte: sevenDaysAgo } },
+            select: { createdAt: true },
+            orderBy: { createdAt: 'asc' },
+        });
+
+        // Son 5 kullanıcı
+        const latestUsers = await this.prisma.user.findMany({
+            take: 5,
+            orderBy: { createdAt: 'desc' },
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true,
+                tier: true,
+                createdAt: true,
+            },
+        });
+
         return {
             totalUsers,
             totalProjects,
             totalQuestions,
+            totalCourses,
+            totalAssignments,
+            completedAssignments,
+            pendingAssignments,
+            totalCoachingSessions,
+            totalEnrollments,
+            activeUsersLast7Days,
+            newUsersLast30Days,
             usersByRole,
             usersByTier,
+            recentUsers,
+            latestUsers,
         };
     }
 

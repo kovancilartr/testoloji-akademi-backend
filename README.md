@@ -136,5 +136,37 @@ Bu scriptler `scripts/debug/` klasörü altında toplanmıştır.
 
 ---
 
+## 📑 Son Güncellemeler (Bugün)
+
+Bugün sistem genelinde hem backend istatistik altyapısı genişletildi, hem de frontend tarafında performans ve görsel iyileştirmeler yapıldı.
+
+### 📊 Admin Panel & İstatistik Genişletme
+- **Backend (`/users/stats`):** Admin istatistik uç noktası tamamen yenilenerek şu veriler eklendi:
+  - Toplam Kurs, Ödev, Koçluk ve Kurs Kaydı sayıları.
+  - Aktif Kullanıcı (7 günlük) ve Yeni Kayıt (30 günlük) trendleri.
+  - Rol ve Paket dağılımları (Pie chart verisi).
+  - En son kayıt olan 5 kullanıcının detaylı listesi.
+- **Yenilenen Admin Dashboard:** 
+  - Modern, kartlı ve grafikli yeni tasarım.
+  - Rol ve Paket dağılımı görselleştirmeleri.
+  - Hızlı erişim paneli (Kullanıcılar, Kurslar, Projeler, Ayarlar).
+  - Ödev tamamlanma oranları ve sistem servis durumları göstergesi.
+
+### 🎨 Görsel & Mobil Uyumluluk (Responsive)
+- **AI Koçluk Paneli:** Mobil cihazlar için tam ekran modu ve optimize edilmiş sohbet balonları eklendi.
+- **Admin Ayarlar Sayfası:** Mobilde kart tabanlı görünüme geçilerek API Key ve Model yönetimi kolaylaştırıldı.
+- **Admin Dashboard:** Tüm istatistik ve grafik bölümleri mobil ekranlara (375x812) tam uyumlu hale getirildi.
+- **Z-Index Fix:** Mobil sidebar ve overlay çakışmaları (z-index: 400) giderildi.
+
+### 🚀 Performans & Cache (TanStack Query)
+- **Global Caching:** Tüm ana veri çekme hook'larına (`useUsers`, `useCourses`, `useProjects`, `useAnalytics` vb.) **5 dakika `staleTime`** eklendi. Sayfa geçişlerinde backend'e gereksiz istek atılması engellendi.
+- **Smart Invalidation:** Veri değiştiğinde (kurs silme, kullanıcı güncelleme vb.) ilgili cache bölümleri anında geçersiz kılınarak verilerin her zaman güncel kalması sağlandı.
+- **Focus Optimizasyonu:** Uygulama odağını değiştirdiğinizde (`refetchOnWindowFocus`) tetiklenen lüzumsuz API çağrıları kapatıldı.
+
+### 🎓 Kurs Yönetimi
+- **Kurs Silme:** Adminler için "Kurs Sil" fonksiyonu ve güvenli bir onay diyaloğu eklendi. Tüm modül ve içeriklerin temizlenmesi sağlandı.
+
+---
+
 ## 📝 Lisans
 Bu proje özel bir mülkiyettir. Tüm hakları saklıdır.
