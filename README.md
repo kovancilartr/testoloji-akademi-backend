@@ -119,6 +119,16 @@ Tüm API uçları (Auth hariç) Header'da `Authorization: Bearer <token>` gerekt
 | GET | `/usage-stats` | ADMIN | Sistem genelindeki AI kullanım (Token/İstek) istatistiklerini döner. |
 | POST | `/` | ADMIN | Yeni bir sistem ayarı kaydeder veya günceller (API Key vb.). |
 
+### 🤖 Desteklenen Gemini Modelleri
+Platform, Google AI Studio altyapısını kullanır ve aşağıdaki modelleri destekler:
+
+| Model | Özellik | RPM | TPM | RPD |
+| :--- | :--- | :--- | :--- | :--- |
+| **Gemini 2.0 Flash** | **Önerilen:** Dengeli hız ve zeka. | 15 | 1M | 1.500 |
+| **Gemini 2.0 Flash-Lite** | **Hızlı:** En yüksek günlük kota. | 30 | 1M | 14.400 |
+| **Gemini 2.5 Flash** | **Zeki:** Gelişmiş akıl yürütme. | 10 | 250K | 500 |
+| **Gemini 2.5 Flash-Lite** | **Hızlı (v2.5):** 2.5 serisi hız odaklı. | 30 | 1M | 14.400 |
+
 ---
 
 ## 🚀 Kurulum & Çalıştırma
