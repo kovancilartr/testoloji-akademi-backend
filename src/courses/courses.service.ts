@@ -91,10 +91,18 @@ export class CoursesService {
     }
 
     async addContent(moduleId: string, dto: AddContentDto) {
+        const data: any = { ...dto };
+        if (data.projectId === '') {
+            data.projectId = null;
+        }
+        if (data.url === '') {
+            data.url = null;
+        }
+
         return await this.prisma.courseContent.create({
             data: {
                 moduleId,
-                ...dto,
+                ...data,
             },
         });
     }
@@ -166,9 +174,18 @@ export class CoursesService {
     }
 
     async updateContent(contentId: string, data: any) {
+        const updateData: any = { ...data };
+        if (updateData.projectId === '') {
+            updateData.projectId = null;
+        }
+
+        if (updateData.url === '') {
+            updateData.url = null;
+        }
+
         return await this.prisma.courseContent.update({
             where: { id: contentId },
-            data,
+            data: updateData,
         });
     }
 

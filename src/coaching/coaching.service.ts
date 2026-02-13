@@ -8,6 +8,9 @@ import { AnalyticsService } from '../analytics/analytics.service';
 import { SystemSettingsService } from '../system-settings/system-settings.service';
 import PDFDocument = require('pdfkit');
 
+/**
+ * Öğrenci Koçluğu ve Yapay Zeka (Gemini) entegrasyonunu yöneten servis.
+ */
 @Injectable()
 export class CoachingService {
     private genAI: GoogleGenerativeAI;
@@ -20,6 +23,10 @@ export class CoachingService {
         private systemSettingsService: SystemSettingsService,
     ) { }
 
+    /**
+     * Gemini AI nesnesini yapılandırır. 
+     * Önce veritabanındaki (SystemSettings) API anahtarına bakar, yoksa .env dosyasındakini kullanır.
+     */
     private async ensureGenAI() {
         const dbApiKey = await this.systemSettingsService.getSetting('GEMINI_API_KEY');
         const apiKey = dbApiKey || this.configService.get<string>('GEMINI_API_KEY');
@@ -34,6 +41,9 @@ export class CoachingService {
         }
     }
 
+    /**
+     * Yapay zeka kullanım detaylarını (token sayıları vb.) veritabanına loglar.
+     */
     private async logAiUsage(model: string, usage: any, action: string, userId?: string) {
         try {
             await this.prisma.aiUsageLog.create({
@@ -52,7 +62,7 @@ export class CoachingService {
     }
 
     /**
-     * Kullanıcının günlük AI limitini User tablosundan al
+     * Belirli bir kullanıcının tanımlanmış günlük yapay zeka kullanım limitini getirir.
      */
     private async getDailyLimit(userId: string): Promise<number> {
         try {
@@ -66,6 +76,9 @@ export class CoachingService {
         }
     }
 
+    /**
+     * Kullanıcının bugünkü kullanım adedini, toplam limitini ve kalan hakkını hesaplar.
+     */
     async getUsage(userId: string) {
         const today = new Date().toISOString().split('T')[0];
         const dailyLimit = await this.getDailyLimit(userId);
@@ -85,6 +98,10 @@ export class CoachingService {
         };
     }
 
+    /**
+     * Soru bazlı basit yapay zeka etkileşimi. 
+     * Kullanıcı bir soru veya cevap hakkında yardım istediğinde kullanılır.
+     */
     async askAi(userId: string, dto: AskAiDto) {
         const usage = await this.getUsage(userId);
 
@@ -125,9 +142,9 @@ export class CoachingService {
     }
 
     /**
-     * AKILLI YÖNLENDİRME:
-     * - Eğer query sınav analizi ile ilgiliyse → PDF oluştur, sınava özel analiz yap
-     * - Eğer genel koçluk sorusu ise → PDF olmadan, sadece öğrenci verileriyle cevapla
+     * Öğrencinin genel ilerlemesini veya belirli bir sınavını analiz eden ana fonksiyon.
+     * Sorgu tipine göre PDF oluşturabilir, geçmiş konuşmaları dahil edebilir 
+     * ve sonuçları önbelleğe (cache) alabilir.
      */
     async analyzeProgress(userId: string, dto: AnalyzeProgressDto) {
         const usage = await this.getUsage(userId);
@@ -312,7 +329,7 @@ export class CoachingService {
     }
 
     /**
-     * Sorgunun sınav analiziyle ilgili olup olmadığını belirle
+     * Kullanıcıdan gelen metnin bir sınav analizi talebi olup olmadığını anahtar kelimelerle kontrol eder.
      */
     private isExamAnalysisQuery(query: string): boolean {
         const examKeywords = [
@@ -332,6 +349,10 @@ export class CoachingService {
 
     // ===== PDF Generation =====
 
+    /**
+     * Sınav sorularını, öğrenci cevaplarını ve görselleri içeren bir analiz PDF'i oluşturur.
+     * Gemini'nin görsel içeriği anlaması veya detaylı rapor sunması için Base64 formatında döner.
+     */
     private async generateExamAnalysisPdf(examTitle: string, questions: any[], answers: Record<string, string>): Promise<string | null> {
         return new Promise(async (resolve, reject) => {
             try {
@@ -415,6 +436,9 @@ export class CoachingService {
         });
     }
 
+    /**
+     * Verilen URL'deki görsele HTTP isteği atarak Buffer olarak indirir (PDF içine eklemek için).
+     */
     private async fetchImageAsBuffer(url: string): Promise<Buffer | null> {
         try {
             if (!url.startsWith('http')) return null;
@@ -428,6 +452,9 @@ export class CoachingService {
         }
     }
 
+    /**
+     * Verilen URL'deki görseli indirip Base64 formatına çevirir (AI modeline göndermek için).
+     */
     private async fetchImageAsBase64(url: string): Promise<string | null> {
         try {
             if (!url.startsWith('http')) return null;
@@ -444,8 +471,7 @@ export class CoachingService {
     // ===== History =====
 
     /**
-     * Geçmişi sayfalanmış (paginated) olarak getir
-     * skip/take ile optimize edilmiş
+     * Kullanıcının geçmiş AI konuşmalarını sayfalama yapısıyla getirir.
      */
     async getHistory(userId: string, page: number = 1, limit: number = 5) {
         const skip = (page - 1) * limit * 2; // Her konuşma 2 kayıt (query + response tek kayıtta ama biz pair olarak düşünüyoruz)
@@ -472,7 +498,7 @@ export class CoachingService {
     // ===== Assignment AI Analysis =====
 
     /**
-     * Bir assignment için kaydedilmiş AI analizini getir
+     * Belirli bir sınav ödevi (assignment) için daha önce üretilmiş AI analizini getirir.
      */
     async getAssignmentAnalysis(assignmentId: string, userId: string) {
         const assignment = await this.prisma.assignment.findFirst({
@@ -500,6 +526,9 @@ export class CoachingService {
 
     // ===== Admin: Update Daily Limit =====
 
+    /**
+     * (Admin) Belirli bir kullanıcının günlük AI kullanım hakkını günceller.
+     */
     async updateDailyLimit(userId: string, limit: number) {
         await this.prisma.user.update({
             where: { id: userId },
@@ -508,6 +537,9 @@ export class CoachingService {
         return { success: true, newLimit: limit };
     }
 
+    /**
+     * Kullanıcının koçluk istatistiklerini (toplam soru, günlük kullanım grafiği vb.) derler.
+     */
     async getUserCoachingStats(userId: string) {
         const [totalPrompts, dailyUsage, historyResult, user] = await Promise.all([
             this.prisma.coachingHistory.count({ where: { userId } }),
@@ -533,6 +565,10 @@ export class CoachingService {
 
     // ===== Prompt Builders =====
 
+    /**
+     * İlerleme analizi için kapsamlı sistem talimatlarını (prompt) oluşturur.
+     * Geçmiş konuşmaları ve öğrenci verilerini metne entegre eder.
+     */
     private buildAnalysisPrompt(dto: AnalyzeProgressDto, history: any[] = [], includeExamInstructions: boolean = true): string {
         const { query, studentData } = dto;
 
@@ -577,6 +613,9 @@ export class CoachingService {
         return prompt;
     }
 
+    /**
+     * Tekil soru analizi (askAi) için kısa ve öz bir koçluk metni (prompt) hazırlar.
+     */
     private buildPrompt(dto: AskAiDto): string {
         const { userAnswer, correctAnswer, context } = dto;
 

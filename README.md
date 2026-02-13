@@ -162,7 +162,21 @@ Bu scriptler `scripts/debug/` klasörü altında toplanmıştır.
 
 ---
 
-## 📑 Son Güncellemeler (13.02.2026)
+## 📑 Son Güncellemeler (13.02.2026 – Güncelleme 2)
+
+Bugünkü güncelleme, frontend tarafında dashboard yenilikleri, PDF çıktı kalitesi ve arayüz iyileştirmelerine odaklandı. Backend tarafında veri sağlayıcı endpoint'ler mevcut yapılarıyla bu değişiklikleri desteklemektedir.
+
+### 🏠 Dashboard Yenilikleri (Frontend ← Backend Veri Kaynakları)
+- **Öğretmen Dashboard:** `GET /academy/analytics` endpoint'inden dönen öğrenci performans verileri (`studentData`, `averageClassGrade`, `totalStudents`) artık doğrudan öğretmen dashboard'unda tablo olarak gösteriliyor.
+- **Öğrenci Dashboard:** `GET /academy/analytics/student` endpoint'inden dönen sınav geçmişi (`scoreHistory`) ve `GET /coaching/assignment/:id/analysis` endpoint'inden dönen AI analizi artık öğrenci dashboard'unda erişilebilir.
+
+### 📄 PDF LaTeX Temizleme
+- **Etki:** AI Koç analiz endpoint'inden (`/coaching/assignment/:id/analysis`) dönen markdown içeriklerinde LaTeX ifadeleri (`$22,22\%$`, `$x^{2}$` vb.) bulunabiliyor. Frontend tarafında bu ifadeler artık PDF oluşturma sırasında okunabilir düz metne (`22,22%`, `x²`) dönüştürülüyor.
+- **Not:** Backend tarafında herhangi bir değişiklik gerekmedi. AI'ın ürettiği LaTeX içerikler olduğu gibi saklanmaya devam ediyor, dönüştürme sadece PDF render aşamasında yapılıyor.
+
+---
+
+## 📑 Önceki Güncellemeler (13.02.2026)
 
 Bugün sistem genelinde hem backend istatistik altyapısı genişletildi, hem de frontend tarafında performans ve görsel iyileştirmeler yapıldı.
 
@@ -196,3 +210,4 @@ Bugün sistem genelinde hem backend istatistik altyapısı genişletildi, hem de
 
 ## 📝 Lisans
 Bu proje özel bir mülkiyettir. Tüm hakları saklıdır.
+
