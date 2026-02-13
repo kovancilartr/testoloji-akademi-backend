@@ -103,6 +103,22 @@ Tüm API uçları (Auth hariç) Header'da `Authorization: Bearer <token>` gerekt
 | POST | `/questions/bulk-upload` | Herkes | Çoklu soru yükleme işlemi başlatır. |
 | POST | `/questions/reorder` | Herkes | Proje içindeki soru sıralamasını günceller. |
 
+### 🤖 AI Koçluk & Analiz (`/coaching`)
+| Method | Endpoint | Erişim | Açıklama |
+| :--- | :--- | :--- | :--- |
+| GET | `/history` | STUDENT | Öğrencinin geçmiş koçluk sohbetlerini listeler. |
+| GET | `/usage` | STUDENT | Günlük AI kullanım limitini ve kalan hakkı döner. |
+| GET | `/assignment/:id/analysis` | Herkes | Belirli bir ödev için üretilmiş AI analizini döner. |
+| POST | `/ask-ai` | STUDENT | AI Coach'a soru sorar (Chat). |
+| POST | `/analyze-progress`| STUDENT | Öğrencinin genel gelişimini analiz eder ve öneriler sunar. |
+
+### ⚙️ Sistem Ayarları (`/system-settings`)
+| Method | Endpoint | Erişim | Açıklama |
+| :--- | :--- | :--- | :--- |
+| GET | `/value` | ADMIN | Anahtar kelimeye göre ayar değerini döner (örn: GEMINI_MODEL). |
+| GET | `/usage-stats` | ADMIN | Sistem genelindeki AI kullanım (Token/İstek) istatistiklerini döner. |
+| POST | `/` | ADMIN | Yeni bir sistem ayarı kaydeder veya günceller (API Key vb.). |
+
 ---
 
 ## 🚀 Kurulum & Çalıştırma
