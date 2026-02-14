@@ -6,8 +6,14 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { createRouteHandler } from "uploadthing/express";
 import { uploadRouter } from "./common/config/upload-router";
 
+import { json, urlencoded } from 'express';
+
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { bodyParser: false });
+
+  // Body Size Limit
+  app.use(json({ limit: '50mb' }));
+  app.use(urlencoded({ extended: true, limit: '50mb' }));
 
   // Global Prefix
   app.setGlobalPrefix('api', {

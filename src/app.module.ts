@@ -17,6 +17,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { CoachingModule } from './coaching/coaching.module';
 import { SystemSettingsModule } from './system-settings/system-settings.module';
+import { StudentQuestionsModule } from './student-questions/student-questions.module';
 
 @Module({
   imports: [
@@ -35,7 +36,8 @@ import { SystemSettingsModule } from './system-settings/system-settings.module';
     AnalyticsModule,
     NotificationsModule,
     CoachingModule,
-    SystemSettingsModule
+    SystemSettingsModule,
+    StudentQuestionsModule
   ],
   controllers: [AppController],
   providers: [AppService],

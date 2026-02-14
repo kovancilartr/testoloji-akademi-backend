@@ -7,4 +7,7 @@ export class LoginDto {
     @IsString()
     @MinLength(6, { message: 'Şifre hatalı veya çok kısa.' })
     password: string;
+
+    @IsString()
+    appType?: string;
 }

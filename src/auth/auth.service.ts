@@ -64,6 +64,17 @@ export class AuthService {
             );
         }
 
+        // Role check based on appType
+        if (dto.appType === 'STUDENT') {
+            if (user.role !== Role.STUDENT && user.role !== Role.ADMIN) {
+                throw new UnauthorizedException('Bu uygulama sadece öğrenciler içindir. Lütfen eğitmen panelini kullanın.');
+            }
+        } else if (dto.appType === 'TEACHER') {
+            if (user.role !== Role.TEACHER && user.role !== Role.ADMIN) {
+                throw new UnauthorizedException('Bu uygulama sadece eğitmenler içindir. Lütfen öğrenci panelini kullanın.');
+            }
+        }
+
         const tokens = await this.generateTokenPair(user);
 
         return {

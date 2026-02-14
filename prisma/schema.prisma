@@ -57,6 +57,11 @@ model User {
   notifications Notification[]
   aiUsages      AiUsage[]
   coachingHistory CoachingHistory[]
+  
+  // Öğretmen ise cevaplaması gereken sorular
+  assignedQuestions StudentQuestion[]
+  
+  phone         String?   // WhatsApp entegrasyonu için
 }
 
 // ... (other models)
@@ -166,6 +171,7 @@ model Student {
   email String?
   phone String?
   gradeLevel String?
+  dailyQuestionLimit Int @default(5) // Günlük soru sorma limiti
   notes String? // Öğretmen notları
   
   assignments Assignment[]
@@ -174,6 +180,8 @@ model Student {
   // Kurs katılımı ve ilerleme
   enrollments CourseEnrollment[]
   contentProgress ContentProgress[]
+  
+  questions StudentQuestion[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -390,6 +398,8 @@ enum NotificationType {
   ASSIGNMENT_CREATED
   SCHEDULE_UPDATED
   COACHING_NOTE
+  QUESTION_ASKED
+  QUESTION_ANSWERED
 }
 
 model CoachingHistory {
@@ -431,4 +441,43 @@ model AiUsageLog {
 
   @@index([createdAt])
   @@index([userId])
+}
+
+
+// --------------------------------------
+// SORU-CEVAP (KOÇLUK) MODELLERİ
+// --------------------------------------
+
+model StudentQuestion {
+  id        String   @id @default(cuid())
+  
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  teacherId String?
+  teacher   User?    @relation(fields: [teacherId], references: [id])
+  
+  lesson    String   // Matematik, Fizik, Türkçe vb.
+  imageUrl  String   // Soru fotoğrafı
+  
+  status    QuestionStatus @default(PENDING)
+  
+  answerUrl String?  // Çözüm fotoğrafı
+  answerText String? // Çözüm açıklaması
+  
+  answeredAt DateTime?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
+
+  @@index([studentId])
+  @@index([teacherId])
+  @@index([status])
+}
+
+enum QuestionStatus {
+  PENDING   // Bekliyor
+  ANSWERED  // Cevaplandı
+  REJECTED  // İptal / Uygunsuz
 }

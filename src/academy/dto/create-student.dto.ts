@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsOptional, IsString, IsInt, Min } from 'class-validator';
 
 export class CreateStudentDto {
     @IsString()
@@ -20,4 +20,9 @@ export class CreateStudentDto {
     @IsString()
     @IsOptional()
     notes?: string;
+
+    @IsInt()
+    @IsOptional()
+    @Min(0)
+    dailyQuestionLimit?: number;
 }

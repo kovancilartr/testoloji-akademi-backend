@@ -48,6 +48,7 @@ export class AcademyService {
                     email: email || null,
                     phone,
                     notes,
+                    dailyQuestionLimit: dto.dailyQuestionLimit || 5, // Varsayılan 5
                 },
             });
         });

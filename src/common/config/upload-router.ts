@@ -12,6 +12,15 @@ export const uploadRouter = {
         console.log("Upload complete for questionImage:", file.url);
         return { url: file.url };
     }),
+    answerImage: f({
+        image: {
+            maxFileSize: "4MB",
+            maxFileCount: 1,
+        },
+    }).onUploadComplete(async ({ metadata, file }) => {
+        console.log("Upload complete for answerImage:", file.url);
+        return { url: file.url };
+    }),
 } satisfies FileRouter;
 
 export type OurFileRouter = typeof uploadRouter;
