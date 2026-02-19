@@ -157,6 +157,13 @@ export class AuthService {
     async getProfile(userId: string) {
         const user = await this.prisma.user.findUnique({
             where: { id: userId },
+            include: {
+                studentProfile: {
+                    select: {
+                        parentPhone: true
+                    }
+                }
+            }
         });
         if (!user) throw new UnauthorizedException('Kullanıcı bulunamadı.');
         return this.sanitizeUser(user);

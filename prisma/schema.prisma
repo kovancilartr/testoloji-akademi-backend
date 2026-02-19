@@ -170,6 +170,7 @@ model Student {
   name String
   email String?
   phone String?
+  parentPhone String? // Veli telefonu, raporlama için
   gradeLevel String?
   dailyQuestionLimit Int @default(5) // Günlük soru sorma limiti
   notes String? // Öğretmen notları

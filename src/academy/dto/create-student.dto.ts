@@ -19,6 +19,10 @@ export class CreateStudentDto {
 
     @IsString()
     @IsOptional()
+    parentPhone?: string;
+
+    @IsString()
+    @IsOptional()
     notes?: string;
 
     @IsInt()

@@ -14,7 +14,7 @@ export class AcademyService {
     ) { }
 
     async createStudent(teacherId: string, dto: CreateStudentDto) {
-        const { name, gradeLevel, email, phone, notes } = dto;
+        const { name, gradeLevel, email, phone, parentPhone, notes } = dto;
 
         return await this.prisma.$transaction(async (tx) => {
             let userId: string | null = null;
@@ -47,6 +47,7 @@ export class AcademyService {
                     gradeLevel,
                     email: email || null,
                     phone,
+                    parentPhone,
                     notes,
                     dailyQuestionLimit: dto.dailyQuestionLimit || 5, // Varsayılan 5
                 },
