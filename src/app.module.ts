@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { BullModule } from '@nestjs/bullmq';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
@@ -22,6 +23,29 @@ import { StudentQuestionsModule } from './student-questions/student-questions.mo
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    BullModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: async (configService: ConfigService) => {
+        const redisUrl = configService.get('REDIS_URL');
+        let connectionOptions: any = {
+          host: configService.get('REDIS_HOST') || 'localhost',
+          port: configService.get('REDIS_PORT') || 6379,
+        };
+
+        if (redisUrl) {
+          const url = new URL(redisUrl);
+          connectionOptions = {
+            host: url.hostname,
+            port: parseInt(url.port, 10),
+            username: url.username,
+            password: url.password,
+          };
+        }
+
+        return { connection: connectionOptions };
+      },
+      inject: [ConfigService],
+    }),
     PrismaModule,
     AuthModule,
     UsersModule,

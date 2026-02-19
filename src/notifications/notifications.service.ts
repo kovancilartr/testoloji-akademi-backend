@@ -1,10 +1,14 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationType } from '@prisma/client';
+import { NotificationsGateway } from './notifications.gateway';
 
 @Injectable()
 export class NotificationsService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        @Inject(forwardRef(() => NotificationsGateway)) private notificationsGateway: NotificationsGateway
+    ) { }
 
     async create(userId: string, data: {
         title: string;
@@ -12,12 +16,17 @@ export class NotificationsService {
         type: NotificationType;
         link?: string;
     }) {
-        return this.prisma.notification.create({
+        const notification = await this.prisma.notification.create({
             data: {
                 userId,
                 ...data,
             },
         });
+
+        // Bildirimi gerçek zamanlı olarak gönder
+        this.notificationsGateway.sendToUser(userId, 'new_notification', notification);
+
+        return notification;
     }
 
     async findAll(userId: string) {

@@ -2,6 +2,8 @@ import { Injectable, ForbiddenException, InternalServerErrorException } from '@n
 import { PrismaService } from '../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 import { GoogleGenerativeAI, Part } from '@google/generative-ai';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { AskAiDto } from './dto/ask-ai.dto';
 import { AnalyzeProgressDto } from './dto/analyze-progress.dto';
 import { AnalyticsService } from '../analytics/analytics.service';
@@ -21,6 +23,7 @@ export class CoachingService {
         private configService: ConfigService,
         private analyticsService: AnalyticsService,
         private systemSettingsService: SystemSettingsService,
+        @InjectQueue('ai-coaching') private aiQueue: Queue,
     ) { }
 
     /**
@@ -99,14 +102,36 @@ export class CoachingService {
     }
 
     /**
-     * Soru bazlı basit yapay zeka etkileşimi. 
-     * Kullanıcı bir soru veya cevap hakkında yardım istediğinde kullanılır.
+     * Soru bazlı yapay zeka etkileşimini kuyruğa yazar.
      */
     async askAi(userId: string, dto: AskAiDto) {
         const usage = await this.getUsage(userId);
-
         if (usage.count >= usage.limit) {
             throw new ForbiddenException(`Günlük yapay zeka kullanım limitinize ulaştınız (${usage.limit}/${usage.limit}). Yarın tekrar deneyebilirsiniz.`);
+        }
+
+        const job = await this.aiQueue.add('process-ai', {
+            type: 'askAi',
+            userId,
+            payload: dto
+        });
+
+        return {
+            status: 'queued',
+            jobId: job.id,
+            message: 'Yapay zeka analizi sıraya alındı. Kısa süre içinde yanıtlanacak.'
+        };
+    }
+
+    /**
+     * Soru bazlı basit yapay zeka etkileşimi. 
+     * Kuyruk üzerinden işlemci tarafından çağrılır.
+     */
+    async processAskAiInternal(userId: string, dto: AskAiDto) {
+        const usage = await this.getUsage(userId);
+
+        if (usage.count >= usage.limit) {
+            throw new ForbiddenException(`Günlük yapay zeka kullanım limitine ulaşıldı.`);
         }
 
         await this.ensureGenAI();
@@ -118,7 +143,9 @@ export class CoachingService {
             const prompt = this.buildPrompt(dto);
             const result = await model.generateContent(prompt);
             const response = await result.response;
-            const text = response.text();
+            let text = response.text();
+
+            text += `\n\n---\n*Bu analiz 'Akademi Kovancılar' için özel olarak hazırlanmış **${modelConfig}** modeli kullanılarak oluşturulmuştur.*`;
 
             await this.logAiUsage(modelConfig, response.usageMetadata, 'AskAi', userId);
 
@@ -142,15 +169,36 @@ export class CoachingService {
     }
 
     /**
-     * Öğrencinin genel ilerlemesini veya belirli bir sınavını analiz eden ana fonksiyon.
-     * Sorgu tipine göre PDF oluşturabilir, geçmiş konuşmaları dahil edebilir 
-     * ve sonuçları önbelleğe (cache) alabilir.
+     * Öğrencinin genel ilerleme analizini kuyruğa yazar.
      */
     async analyzeProgress(userId: string, dto: AnalyzeProgressDto) {
         const usage = await this.getUsage(userId);
-
         if (usage.count >= usage.limit) {
             throw new ForbiddenException(`Günlük yapay zeka kullanım limitinize ulaştınız (${usage.limit}/${usage.limit}). Yarın tekrar deneyebilirsiniz.`);
+        }
+
+        const job = await this.aiQueue.add('process-ai', {
+            type: 'analyzeProgress',
+            userId,
+            payload: dto
+        });
+
+        return {
+            status: 'queued',
+            jobId: job.id,
+            message: 'Yapay zeka analiziniz sıraya alındı.'
+        };
+    }
+
+    /**
+     * Öğrencinin genel ilerlemesini veya belirli bir sınavını analiz eden ana fonksiyon.
+     * Kuyruk üzerinden işlemci tarafından çağrılır.
+     */
+    async processAnalyzeProgressInternal(userId: string, dto: AnalyzeProgressDto) {
+        const usage = await this.getUsage(userId);
+
+        if (usage.count >= usage.limit) {
+            throw new ForbiddenException(`Günlük yapay zeka kullanım limitine ulaşıldı.`);
         }
 
         await this.ensureGenAI();
@@ -280,6 +328,8 @@ export class CoachingService {
                 response = await result.response;
                 text = response.text();
             }
+
+            text += `\n\n---\n*Bu analiz 'Akademi Kovancılar' için özel olarak hazırlanmış **${finalModelUsed}** modeli kullanılarak oluşturulmuştur.*`;
 
             // Detaylı loglama
             await this.logAiUsage(finalModelUsed, response.usageMetadata, isExamAnalysis ? 'AnalyzeExam' : 'CoachChat', userId);
