@@ -1,7 +1,7 @@
 import { Injectable, ForbiddenException, InternalServerErrorException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
-import { Role } from '@prisma/client';
+import { Role, SubscriptionTier } from '@prisma/client';
 import { GoogleGenerativeAI, Part } from '@google/generative-ai';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -74,11 +74,19 @@ export class CoachingService {
         try {
             const user = await this.prisma.user.findUnique({
                 where: { id: userId },
-                select: { dailyAiLimit: true } as any,
+                select: { dailyAiLimit: true, tier: true } as any,
             }) as any;
-            return user?.dailyAiLimit || 10;
+
+            const tierAiLimits = {
+                [SubscriptionTier.BRONZ]: 1,
+                [SubscriptionTier.GUMUS]: 5,
+                [SubscriptionTier.ALTIN]: 20,
+                [SubscriptionTier.FREE]: 1
+            };
+
+            return user?.dailyAiLimit || tierAiLimits[user?.tier as SubscriptionTier] || 1;
         } catch {
-            return 10;
+            return 1;
         }
     }
 

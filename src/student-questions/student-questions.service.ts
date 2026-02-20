@@ -7,7 +7,7 @@ import { WhatsAppService } from 'src/tools/whatsapp.service';
 import { UploadThingService } from 'src/tools/uploadthing.service';
 import { AnswerQuestionDto } from './dto/answer-question.dto';
 import { NotificationsService } from 'src/notifications/notifications.service';
-import { NotificationType } from '@prisma/client';
+import { NotificationType, SubscriptionTier } from '@prisma/client';
 
 @Injectable()
 export class StudentQuestionsService {
@@ -43,11 +43,18 @@ export class StudentQuestionsService {
             throw new NotFoundException('Öğrenci bulunamadı.');
         }
 
-        const DAILY_LIMIT = student.dailyQuestionLimit ?? 5; // Varsayılan 5 (Schema'da da 5)
+        const tierQuestionLimits = {
+            [SubscriptionTier.BRONZ]: 1,
+            [SubscriptionTier.GUMUS]: 5,
+            [SubscriptionTier.ALTIN]: 20,
+            [SubscriptionTier.FREE]: 1
+        };
+
+        const DAILY_LIMIT = student.dailyQuestionLimit || tierQuestionLimits[student.user?.tier as SubscriptionTier] || 1;
         const todayCount = student.questions.length;
 
         if (todayCount >= DAILY_LIMIT) {
-            throw new BadRequestException(`Günlük soru limitiniz (${DAILY_LIMIT}) dolmuştur. Yarın tekrar sorabilirsiniz.`);
+            throw new BadRequestException(`Günlük soru limitiniz (${DAILY_LIMIT}) dolmuştur. Paketine göre limitin dolmuştur, yarın tekrar sorabilirsin.`);
         }
 
         // 2. Base64 ise UploadThing'e yükle
@@ -190,6 +197,7 @@ export class StudentQuestionsService {
         const student = await this.prisma.student.findUnique({
             where: { userId },
             include: {
+                user: true,
                 questions: {
                     where: {
                         createdAt: {
@@ -208,10 +216,19 @@ export class StudentQuestionsService {
             throw new NotFoundException('Öğrenci bulunamadı.');
         }
 
+        const tierQuestionLimits = {
+            [SubscriptionTier.BRONZ]: 1,
+            [SubscriptionTier.GUMUS]: 5,
+            [SubscriptionTier.ALTIN]: 20,
+            [SubscriptionTier.FREE]: 1
+        };
+
+        const currentLimit = student.dailyQuestionLimit || tierQuestionLimits[student.user?.tier as SubscriptionTier] || 1;
+
         return {
-            limit: student.dailyQuestionLimit,
+            limit: currentLimit,
             used: student.questions.length,
-            remaining: Math.max(0, student.dailyQuestionLimit - student.questions.length)
+            remaining: Math.max(0, currentLimit - student.questions.length)
         };
     }
 
