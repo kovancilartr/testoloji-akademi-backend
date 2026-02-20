@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsNumber, IsOptional, IsString, IsDateString, ValidateIf } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsOptional, IsString, IsDateString, ValidateIf, IsBoolean } from 'class-validator';
 
 export class CreateScheduleDto {
     @IsString()
@@ -25,6 +25,10 @@ export class CreateScheduleDto {
     @IsOptional()
     endTime?: string;
 
+    @IsBoolean()
+    @IsOptional()
+    isAllDay?: boolean;
+
     @IsString()
     @IsNotEmpty()
     activity: string;
@@ -36,4 +40,12 @@ export class CreateScheduleDto {
     @IsString()
     @IsOptional()
     contentId?: string;
+
+    @IsString()
+    @IsOptional()
+    subject?: string;
+
+    @IsString()
+    @IsOptional()
+    note?: string;
 }

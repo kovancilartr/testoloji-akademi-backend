@@ -53,10 +53,13 @@ export class SchedulesService {
             dayOfWeek: dto.dayOfWeek,
             startTime: dto.startTime,
             endTime: dto.endTime,
+            isAllDay: dto.isAllDay || false,
             activity: dto.activity,
             isCompleted: false,
             courseId: dto.courseId,
             contentId: dto.contentId,
+            subject: dto.subject,
+            note: dto.note,
         };
 
         if (dto.date) {
@@ -78,6 +81,38 @@ export class SchedulesService {
         }
 
         return newItem;
+    }
+
+    async updateItem(teacherId: string, scheduleId: string, dto: Partial<CreateScheduleDto>) {
+        const existing = await this.prisma.schedule.findFirst({
+            where: {
+                id: scheduleId,
+                student: { teacherId },
+            },
+        });
+
+        if (!existing) throw new NotFoundException('Kayıt bulunamadı.');
+
+        const data: any = {
+            dayOfWeek: dto.dayOfWeek,
+            startTime: dto.startTime,
+            endTime: dto.endTime,
+            isAllDay: dto.isAllDay,
+            activity: dto.activity,
+            courseId: dto.courseId,
+            contentId: dto.contentId,
+            subject: dto.subject,
+            note: dto.note,
+        };
+
+        if (dto.date) {
+            data.date = new Date(dto.date);
+        }
+
+        return await this.prisma.schedule.update({
+            where: { id: scheduleId },
+            data,
+        });
     }
 
     async deleteItem(teacherId: string, scheduleId: string) {
@@ -111,5 +146,47 @@ export class SchedulesService {
             where: { id: scheduleId },
             data: { isCompleted },
         });
+    }
+
+    async createBulk(teacherId: string, dtos: CreateScheduleDto[]) {
+        if (!dtos.length) return { count: 0 };
+        const studentId = dtos[0].studentId;
+
+        const student = await this.prisma.student.findFirst({
+            where: { id: studentId, teacherId },
+        });
+
+        if (!student) throw new ForbiddenException('Öğrenciye erişim yetkiniz yok.');
+
+        const data = dtos.map(dto => ({
+            studentId,
+            dayOfWeek: dto.dayOfWeek,
+            startTime: dto.startTime,
+            endTime: dto.endTime,
+            isAllDay: dto.isAllDay || false,
+            activity: dto.activity,
+            isCompleted: false,
+            courseId: dto.courseId,
+            contentId: dto.contentId,
+            subject: dto.subject,
+            note: dto.note,
+            date: dto.date ? new Date(dto.date) : undefined,
+        }));
+
+        const result = await this.prisma.schedule.createMany({
+            data,
+        });
+
+        // Bildirim gönder
+        if (student.userId) {
+            await this.notificationsService.create(student.userId, {
+                title: 'Ders Programı Güncellendi',
+                message: `Takviminize ${dtos.length} yeni etkinlik eklendi.`,
+                type: NotificationType.SCHEDULE_UPDATED,
+                link: '/dashboard/student/schedule'
+            });
+        }
+
+        return result;
     }
 }

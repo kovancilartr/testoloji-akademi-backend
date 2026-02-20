@@ -124,8 +124,20 @@ export class AcademyService {
             throw new NotFoundException('Öğrenci bulunamadı veya yetkiniz yok.');
         }
 
-        return await this.prisma.student.delete({
-            where: { id: studentId },
+        return await this.prisma.$transaction(async (tx) => {
+            // Önce öğrenciyi sil (bu, schedule, assignment vb. tabloları cascade ile siler)
+            const deletedStudent = await tx.student.delete({
+                where: { id: studentId },
+            });
+
+            // Eğer bir kullanıcı hesabı varsa onu da sil (bu da notification, refreshToken vb. cascade ile siler)
+            if (student.userId) {
+                await tx.user.delete({
+                    where: { id: student.userId },
+                });
+            }
+
+            return deletedStudent;
         });
     }
 }

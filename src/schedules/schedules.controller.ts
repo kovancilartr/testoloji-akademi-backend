@@ -33,6 +33,15 @@ export class SchedulesController {
         return this.schedulesService.createItem(userId, dto);
     }
 
+    @Post('bulk')
+    @Roles(Role.TEACHER, Role.ADMIN)
+    async createBulk(
+        @GetUser('userId') userId: string,
+        @Body() dtos: CreateScheduleDto[],
+    ) {
+        return this.schedulesService.createBulk(userId, dtos);
+    }
+
     @Delete(':id')
     @Roles(Role.TEACHER, Role.ADMIN)
     async deleteItem(
@@ -40,6 +49,16 @@ export class SchedulesController {
         @Param('id') id: string,
     ) {
         return this.schedulesService.deleteItem(userId, id);
+    }
+
+    @Patch(':id')
+    @Roles(Role.TEACHER, Role.ADMIN)
+    async updateItem(
+        @GetUser('userId') userId: string,
+        @Param('id') id: string,
+        @Body() dto: Partial<CreateScheduleDto>,
+    ) {
+        return this.schedulesService.updateItem(userId, id, dto);
     }
 
     @Patch(':id/complete')
