@@ -7,6 +7,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { ConfigModule } from '@nestjs/config';
 import { AnalyticsModule } from '../analytics/analytics.module';
 import { SystemSettingsModule } from '../system-settings/system-settings.module';
+import { SchedulesModule } from '../schedules/schedules.module';
 
 @Module({
     imports: [
@@ -14,6 +15,7 @@ import { SystemSettingsModule } from '../system-settings/system-settings.module'
         ConfigModule,
         AnalyticsModule,
         SystemSettingsModule,
+        SchedulesModule,
         BullModule.registerQueue({
             name: 'ai-coaching',
         }),

@@ -37,17 +37,29 @@ export class CoachingController {
         return this.coachingService.analyzeProgress(userId, dto);
     }
 
+    @Post('analyze-student/:studentId')
+    @Roles(Role.TEACHER, Role.ADMIN)
+    async analyzeStudent(
+        @GetUser('userId') teacherUserId: string,
+        @Param('studentId') studentId: string,
+        @Body() dto: AnalyzeProgressDto,
+    ) {
+        return this.coachingService.analyzeStudentForTeacher(teacherUserId, studentId, dto);
+    }
+
     @Get('history')
     @Roles(Role.STUDENT, Role.TEACHER, Role.ADMIN)
     async getHistory(
         @GetUser('userId') userId: string,
         @Query('page') page?: string,
         @Query('limit') limit?: string,
+        @Query('action') action?: string,
     ) {
         return this.coachingService.getHistory(
             userId,
             page ? parseInt(page, 10) : 1,
             limit ? parseInt(limit, 10) : 5,
+            action,
         );
     }
 

@@ -1,12 +1,14 @@
 import { Injectable, ForbiddenException, InternalServerErrorException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
+import { Role } from '@prisma/client';
 import { GoogleGenerativeAI, Part } from '@google/generative-ai';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { AskAiDto } from './dto/ask-ai.dto';
 import { AnalyzeProgressDto } from './dto/analyze-progress.dto';
 import { AnalyticsService } from '../analytics/analytics.service';
+import { SchedulesService } from '../schedules/schedules.service';
 import { SystemSettingsService } from '../system-settings/system-settings.service';
 import PDFDocument = require('pdfkit');
 
@@ -22,6 +24,7 @@ export class CoachingService {
         private prisma: PrismaService,
         private configService: ConfigService,
         private analyticsService: AnalyticsService,
+        private schedulesService: SchedulesService,
         private systemSettingsService: SystemSettingsService,
         @InjectQueue('ai-coaching') private aiQueue: Queue,
     ) { }
@@ -172,6 +175,31 @@ export class CoachingService {
      * Öğrencinin genel ilerleme analizini kuyruğa yazar.
      */
     async analyzeProgress(userId: string, dto: AnalyzeProgressDto) {
+        // Genel gelişim raporu talebi mi kontrol et
+        const isGeneralReport = dto.query.includes("Kişisel Gelişim Raporu");
+
+        if (isGeneralReport) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const existingReport = await this.prisma.coachingHistory.findFirst({
+                where: {
+                    userId,
+                    action: 'progress_analysis',
+                    createdAt: { gte: today }
+                },
+                orderBy: { createdAt: 'desc' }
+            });
+
+            if (existingReport) {
+                return {
+                    status: 'cached',
+                    analysis: `Bugün senin için hazırladığım raporu tekrar getirdim. Gelişimlerini daha sağlıklı değerlendirebilmem için günde bir kez detaylı rapor hazırlamalıyım. İşte bugünkü değerlendirmen:\n\n${existingReport.response}`,
+                    message: 'Bugünkü raporunuz tekrar yüklendi.'
+                };
+            }
+        }
+
         const usage = await this.getUsage(userId);
         if (usage.count >= usage.limit) {
             throw new ForbiddenException(`Günlük yapay zeka kullanım limitinize ulaştınız (${usage.limit}/${usage.limit}). Yarın tekrar deneyebilirsiniz.`);
@@ -187,6 +215,34 @@ export class CoachingService {
             status: 'queued',
             jobId: job.id,
             message: 'Yapay zeka analiziniz sıraya alındı.'
+        };
+    }
+
+    /**
+     * Öğretmen için öğrenci analizini başlatır.
+     */
+    async analyzeStudentForTeacher(teacherUserId: string, studentId: string, dto: AnalyzeProgressDto) {
+        // Güvenlik kontrolü
+        const student = await this.prisma.student.findFirst({
+            where: { id: studentId, teacherId: teacherUserId }
+        });
+        if (!student) throw new ForbiddenException('Bu öğrenciye erişim yetkiniz yok.');
+
+        const usage = await this.getUsage(teacherUserId);
+        if (usage.count >= usage.limit) {
+            throw new ForbiddenException(`Günlük yapay zeka kullanım limitinize ulaştınız. Yarın tekrar deneyebilirsiniz.`);
+        }
+
+        const job = await this.aiQueue.add('process-ai', {
+            type: 'analyzeProgress',
+            userId: teacherUserId,
+            payload: { ...dto, studentId }
+        });
+
+        return {
+            status: 'queued',
+            jobId: job.id,
+            message: 'Öğrenci analizi sıraya alındı.'
         };
     }
 
@@ -235,9 +291,22 @@ export class CoachingService {
             let studentData = dto.studentData;
             if (!studentData) {
                 try {
-                    studentData = await this.analyticsService.getStudentOverviewByUserId(userId);
+                    let targetStudent;
+                    if (dto.studentId) {
+                        targetStudent = await this.prisma.student.findUnique({ where: { id: dto.studentId } });
+                    } else {
+                        targetStudent = await this.prisma.student.findUnique({ where: { userId } });
+                    }
+
+                    if (targetStudent) {
+                        studentData = await this.analyticsService.getStudentOverview(userId, Role.STUDENT, targetStudent.id);
+
+                        // Add schedule summary (last 30 days)
+                        const scheduleSummary = await this.schedulesService.getScheduleSummary(targetStudent.id);
+                        studentData.scheduleSummary = scheduleSummary;
+                    }
                 } catch (e) {
-                    console.warn('Analytics data could not be fetched for user:', userId);
+                    console.warn('Analytics/Schedule data could not be fetched:', userId, dto.studentId);
                 }
             }
 
@@ -329,18 +398,27 @@ export class CoachingService {
                 text = response.text();
             }
 
-            text += `\n\n---\n*Bu analiz 'Akademi Kovancılar' için özel olarak hazırlanmış **${finalModelUsed}** modeli kullanılarak oluşturulmuştur.*`;
+            // Temizlik: AI cevabı zaten footer'ı (geçmişten esinlenip) eklemiş olabilir
+            const footerBadge = "Bu analiz 'Akademi Kovancılar' için özel olarak hazırlanmış";
+            if (!text.includes(footerBadge)) {
+                text += `\n\n---\n*Bu analiz 'Akademi Kovancılar' için özel olarak hazırlanmış **${finalModelUsed}** modeli kullanılarak oluşturulmuştur.*`;
+            }
 
             // Detaylı loglama
             await this.logAiUsage(finalModelUsed, response.usageMetadata, isExamAnalysis ? 'AnalyzeExam' : 'CoachChat', userId);
 
             // Konuşmayı geçmişe kaydet
+            let actionText = isExamAnalysis ? 'analysis' : 'chat';
+            if (dto.query.includes("Kişisel Gelişim Raporu")) {
+                actionText = 'progress_analysis';
+            }
+
             await this.prisma.coachingHistory.create({
                 data: {
                     userId,
                     query: dto.query,
                     response: text,
-                    action: isExamAnalysis ? 'analysis' : 'chat',
+                    action: actionText,
                     assignmentId: assignmentId,
                 } as any,
             });
@@ -523,17 +601,22 @@ export class CoachingService {
     /**
      * Kullanıcının geçmiş AI konuşmalarını sayfalama yapısıyla getirir.
      */
-    async getHistory(userId: string, page: number = 1, limit: number = 5) {
-        const skip = (page - 1) * limit * 2; // Her konuşma 2 kayıt (query + response tek kayıtta ama biz pair olarak düşünüyoruz)
+    async getHistory(userId: string, page: number = 1, limit: number = 5, action?: string) {
+        const skip = (page - 1) * limit;
+
+        const where: any = { userId };
+        if (action) {
+            where.action = action;
+        }
 
         const [items, total] = await Promise.all([
             this.prisma.coachingHistory.findMany({
-                where: { userId },
+                where,
                 orderBy: { createdAt: 'desc' },
                 take: limit,
-                skip: page === 1 ? 0 : (page - 1) * limit,
+                skip,
             }),
-            this.prisma.coachingHistory.count({ where: { userId } }),
+            this.prisma.coachingHistory.count({ where }),
         ]);
 
         return {
@@ -627,8 +710,10 @@ export class CoachingService {
         if (history.length > 0) {
             prompt += `\nÖnceki Konuşmalarımız:\n`;
             history.forEach(h => {
+                // Footer'ı geçmişten temizle ki AI tekrar etmesin
+                const cleanResponse = h.response.split('\n\n---\n*Bu analiz')[0];
                 prompt += `Öğrenci: ${h.query}\n`;
-                prompt += `Sen (Koç): ${h.response}\n\n`;
+                prompt += `Sen (Koç): ${cleanResponse}\n\n`;
             });
             prompt += `--- Geçmiş Konuşma Sonu ---\n\n`;
         }
@@ -641,6 +726,15 @@ export class CoachingService {
             - Toplam Çözülen Sınav: ${studentData.totalExams}
             - Son Sınav Performansları (Başarı %): ${JSON.stringify(studentData.scoreHistory?.slice(0, 5).map((ex: any) => ({ title: ex.title, grade: ex.grade })))}
             \n`;
+
+            if (studentData.scheduleSummary) {
+                prompt += `Öğrencinin Son 30 Günlük Çalışma Programı Özeti:
+                - Toplam Planlanan Aktivite: ${studentData.scheduleSummary.totalActivities}
+                - Tamamlanan Aktivite: ${studentData.scheduleSummary.completedActivities}
+                - Program Uyum Oranı: %${studentData.scheduleSummary.completionRate}
+                - Ders Bazlı Çalışma Dağılımı: ${JSON.stringify(studentData.scheduleSummary.subjectStats)}
+                \n`;
+            }
         }
 
         if (includeExamInstructions) {

@@ -247,4 +247,42 @@ export class SchedulesService {
 
         return result;
     }
+
+    async getScheduleSummary(studentId: string) {
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        const schedules = await this.prisma.schedule.findMany({
+            where: {
+                studentId,
+                OR: [
+                    { date: { gte: thirtyDaysAgo } },
+                    { date: null } // Recurring tasks
+                ]
+            },
+        });
+
+        const total = schedules.length;
+        const completed = schedules.filter(s => s.isCompleted).length;
+        const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+        // Group by subject to see focus areas
+        const subjectStats: Record<string, { total: number, completed: number }> = {};
+        schedules.forEach(s => {
+            const subject = s.subject || "Diğer";
+            if (!subjectStats[subject]) {
+                subjectStats[subject] = { total: 0, completed: 0 };
+            }
+            subjectStats[subject].total++;
+            if (s.isCompleted) subjectStats[subject].completed++;
+        });
+
+        return {
+            period: "Son 30 Gün",
+            totalActivities: total,
+            completedActivities: completed,
+            completionRate,
+            subjectStats
+        };
+    }
 }

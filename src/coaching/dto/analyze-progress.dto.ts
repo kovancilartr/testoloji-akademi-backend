@@ -8,4 +8,8 @@ export class AnalyzeProgressDto {
     @IsObject()
     @IsOptional()
     studentData?: any;
+
+    @IsString()
+    @IsOptional()
+    studentId?: string;
 }
