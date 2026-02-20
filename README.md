@@ -223,3 +223,4 @@ Bugün sistem genelinde hem backend istatistik altyapısı genişletildi, hem de
 ## 📝 Lisans
 Bu proje özel bir mülkiyettir. Tüm hakları saklıdır.
 
+akademi-backend
