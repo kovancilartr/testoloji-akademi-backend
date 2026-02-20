@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Role, SubscriptionTier } from '@prisma/client';
 
@@ -228,5 +228,39 @@ export class UsersService {
         ]);
 
         return { pending, completed, courses };
+    }
+
+    async assignTeacher(userId: string, teacherId: string) {
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            select: { name: true, email: true, role: true }
+        });
+
+        if (!user) throw new NotFoundException('Kullanıcı bulunamadı.');
+
+        // Sadece öğrencilere öğretmen atanabilir
+        if (user.role !== Role.STUDENT) {
+            throw new BadRequestException('Sadece öğrencilere öğretmen atanabilir.');
+        }
+
+        const profile = await this.prisma.student.findUnique({
+            where: { userId }
+        });
+
+        if (profile) {
+            return this.prisma.student.update({
+                where: { userId },
+                data: { teacherId }
+            });
+        } else {
+            return this.prisma.student.create({
+                data: {
+                    userId,
+                    teacherId,
+                    name: user.name || 'Öğrenci',
+                    email: user.email
+                }
+            });
+        }
     }
 }

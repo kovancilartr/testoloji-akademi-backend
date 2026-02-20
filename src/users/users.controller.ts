@@ -84,4 +84,13 @@ export class UsersController {
     async getStudentStats(@GetUser('userId') userId: string) {
         return this.usersService.getStudentStats(userId);
     }
+
+    @Patch(':id/assign-teacher')
+    @Roles(Role.ADMIN)
+    async assignTeacher(
+        @Param('id') id: string,
+        @Body('teacherId') teacherId: string
+    ) {
+        return this.usersService.assignTeacher(id, teacherId);
+    }
 }

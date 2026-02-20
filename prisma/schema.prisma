@@ -15,6 +15,7 @@ enum Role {
 }
 
 enum SubscriptionTier {
+  RESTRICTED // Kayıt sonrası onay bekleyen kısıtlı mod
   FREE
   BRONZ
   GUMUS
@@ -27,7 +28,7 @@ model User {
   password      String
   name          String?
   role          Role      @default(TEACHER)
-  tier          SubscriptionTier @default(BRONZ)
+  tier          SubscriptionTier @default(RESTRICTED)
   isActive      Boolean   @default(true)
   hasCoachingAccess Boolean @default(false)
   passwordChangeRequired Boolean @default(false)

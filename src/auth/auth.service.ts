@@ -32,7 +32,7 @@ export class AuthService {
                 password: hashedPassword,
                 name: dto.name,
                 role: dto.role || Role.TEACHER,
-                tier: dto.tier || SubscriptionTier.BRONZ,
+                tier: dto.tier || SubscriptionTier.RESTRICTED,
             },
         });
 
