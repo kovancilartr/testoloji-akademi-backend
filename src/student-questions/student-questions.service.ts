@@ -47,7 +47,8 @@ export class StudentQuestionsService {
             [SubscriptionTier.BRONZ]: 1,
             [SubscriptionTier.GUMUS]: 5,
             [SubscriptionTier.ALTIN]: 20,
-            [SubscriptionTier.FREE]: 1
+            [SubscriptionTier.FREE]: 0,
+            [SubscriptionTier.RESTRICTED]: 0
         };
 
         // Limit hesaplama: Eğer özel ayarlanmış (> 0) onu kullan, yoksa paket limitini kullan
@@ -225,7 +226,8 @@ export class StudentQuestionsService {
             [SubscriptionTier.BRONZ]: 1,
             [SubscriptionTier.GUMUS]: 5,
             [SubscriptionTier.ALTIN]: 20,
-            [SubscriptionTier.FREE]: 1
+            [SubscriptionTier.FREE]: 0,
+            [SubscriptionTier.RESTRICTED]: 0
         };
 
         const tierDefault = tierQuestionLimits[student.user?.tier as SubscriptionTier] || 1;

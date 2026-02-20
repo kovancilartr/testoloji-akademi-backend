@@ -81,7 +81,8 @@ export class CoachingService {
                 [SubscriptionTier.BRONZ]: 1,
                 [SubscriptionTier.GUMUS]: 5,
                 [SubscriptionTier.ALTIN]: 20,
-                [SubscriptionTier.FREE]: 1
+                [SubscriptionTier.FREE]: 0,
+                [SubscriptionTier.RESTRICTED]: 0
             };
 
             const tierDefault = tierAiLimits[user?.tier as SubscriptionTier] || 1;
