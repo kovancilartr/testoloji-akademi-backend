@@ -107,10 +107,12 @@ Tüm API uçları (Auth hariç) Header'da `Authorization: Bearer <token>` gerekt
 | Method | Endpoint | Erişim | Açıklama |
 | :--- | :--- | :--- | :--- |
 | GET | `/history` | STUDENT | Öğrencinin geçmiş koçluk sohbetlerini listeler. |
-| GET | `/usage` | STUDENT | Günlük AI kullanım limitini ve kalan hakkı döner. |
+| GET | `/history/student/:studentId` | TEACHER, ADMIN | Belirli bir öğrencinin geçmiş koçluk raporlarını listeler. |
+| GET | `/usage` | Herkes | Günlük AI kullanım limitini ve kalan hakkı döner. |
 | GET | `/assignment/:id/analysis` | Herkes | Belirli bir ödev için üretilmiş AI analizini döner. |
-| POST | `/ask-ai` | STUDENT | AI Coach'a soru sorar (Chat). |
-| POST | `/analyze-progress`| STUDENT | Öğrencinin genel gelişimini analiz eder ve öneriler sunar. |
+| POST | `/ask-ai` | Herkes | AI Coach'a soru sorar (Chat). |
+| POST | `/analyze-progress`| STUDENT | Öğrencinin genel gelişimini analiz eder ve öneriler sunar (Günde 1 kez cache'lenir). |
+| POST | `/analyze-student/:studentId` | TEACHER, ADMIN | Öğretmen için öğrenci performansını analiz eder (Öğrenci geçmişine kaydeder). |
 
 ### ⚙️ Sistem Ayarları (`/system-settings`)
 | Method | Endpoint | Erişim | Açıklama |
@@ -162,9 +164,19 @@ Bu scriptler `scripts/debug/` klasörü altında toplanmıştır.
 
 ---
 
-## 📑 Son Güncellemeler (13.02.2026 – Güncelleme 2)
+## 📑 Son Güncellemeler (20.02.2026 – Güncelleme 3)
 
-Bugünkü güncelleme, frontend tarafında dashboard yenilikleri, PDF çıktı kalitesi ve arayüz iyileştirmelerine odaklandı. Backend tarafında veri sağlayıcı endpoint'ler mevcut yapılarıyla bu değişiklikleri desteklemektedir.
+Bugünkü güncelleme ile AI Koç Raporlama sistemi v2 sürümüne yükseltildi. Öğretmen ve öğrenci arasındaki rapor paylaşımı ve performans optimizasyonu sağlandı.
+
+### 🤖 AI Koç v2 & Caching Sistemi
+- **Akıllı Önbellekleme:** Öğrenci ve öğretmenlerin günlük rapor talepleri (`progress_analysis`) veritabanında cache'lenerek aynı gün içinde yapılan mükerrer isteklerde token tasarrufu ve hız sağlandı.
+- **Öğretmen-Öğrenci Senkronizasyonu:** Öğretmenlerin başlattığı analizler artık doğrudan öğrencinin gelişim geçmişine kaydediliyor.
+- **Rol Bazlı API Genişletme:** Öğretmenler için öğrencilerin geçmiş AI raporlarını ve sınav analizlerini görebilecekleri güvenli endpoint'ler (`/history/student/:id`) devreye alındı.
+- **Performans:** BullMQ kuyruk yapısı iyileştirilerek eş zamanlı analiz talepleri daha stabil bir hale getirildi.
+
+---
+
+## 📑 Önceki Güncellemeler (13.02.2026 – Güncelleme 2)
 
 ### 🏠 Dashboard Yenilikleri (Frontend ← Backend Veri Kaynakları)
 - **Öğretmen Dashboard:** `GET /academy/analytics` endpoint'inden dönen öğrenci performans verileri (`studentData`, `averageClassGrade`, `totalStudents`) artık doğrudan öğretmen dashboard'unda tablo olarak gösteriliyor.

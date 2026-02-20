@@ -224,9 +224,34 @@ export class CoachingService {
     async analyzeStudentForTeacher(teacherUserId: string, studentId: string, dto: AnalyzeProgressDto) {
         // Güvenlik kontrolü
         const student = await this.prisma.student.findFirst({
-            where: { id: studentId, teacherId: teacherUserId }
+            where: { id: studentId, teacherId: teacherUserId },
+            include: { user: true }
         });
         if (!student) throw new ForbiddenException('Bu öğrenciye erişim yetkiniz yok.');
+
+        // Önbellek kontrolü (Öğrenci için bugün rapor oluşturulmuş mu?)
+        const isGeneralReport = dto.query.includes("Performans Değerlendirmesi") || dto.query.includes("Gelişim Raporu");
+        if (isGeneralReport) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const existingReport = await this.prisma.coachingHistory.findFirst({
+                where: {
+                    userId: student.userId as string,
+                    action: 'progress_analysis',
+                    createdAt: { gte: today }
+                },
+                orderBy: { createdAt: 'desc' }
+            });
+
+            if (existingReport) {
+                return {
+                    status: 'cached',
+                    analysis: existingReport.response,
+                    message: 'Bu öğrenci için bugün hazırlanmış rapor yüklendi.'
+                };
+            }
+        }
 
         const usage = await this.getUsage(teacherUserId);
         if (usage.count >= usage.limit) {
@@ -409,13 +434,22 @@ export class CoachingService {
 
             // Konuşmayı geçmişe kaydet
             let actionText = isExamAnalysis ? 'analysis' : 'chat';
-            if (dto.query.includes("Kişisel Gelişim Raporu")) {
+            if (dto.query.includes("Kişisel Gelişim Raporu") || dto.query.includes("Performans Değerlendirmesi") || dto.query.includes("Gelişim Raporu")) {
                 actionText = 'progress_analysis';
+            }
+
+            // Eğer öğretmen bir öğrenciyi analiz ediyorsa, raporu öğrencinin geçmişine kaydet
+            let historyUserId = userId;
+            if (dto.studentId) {
+                const targetStudent = await this.prisma.student.findUnique({ where: { id: dto.studentId } });
+                if (targetStudent?.userId) {
+                    historyUserId = targetStudent.userId;
+                }
             }
 
             await this.prisma.coachingHistory.create({
                 data: {
-                    userId,
+                    userId: historyUserId,
                     query: dto.query,
                     response: text,
                     action: actionText,
@@ -628,17 +662,51 @@ export class CoachingService {
         };
     }
 
+    /**
+     * Öğretmen için bir öğrencinin geçmiş AI konuşmalarını getirir.
+     */
+    async getStudentHistoryForTeacher(teacherUserId: string, studentId: string, page: number = 1, limit: number = 5, action?: string) {
+        // Öğrencinin bu öğretmene ait olup olmadığını kontrol et (Eğer admin değilse)
+        const teacher = await this.prisma.user.findUnique({ where: { id: teacherUserId } });
+        const isAdmin = teacher?.role === 'ADMIN';
+
+        const student = await this.prisma.student.findUnique({
+            where: isAdmin ? { id: studentId } : { id: studentId, teacherId: teacherUserId }
+        });
+
+        if (!student) {
+            throw new ForbiddenException('Bu öğrencinin verilerine erişim yetkiniz yok veya öğrenci bulunamadı.');
+        }
+
+        if (!student.userId) {
+            return { items: [], total: 0, page, totalPages: 0, hasMore: false };
+        }
+
+        return this.getHistory(student.userId, page, limit, action);
+    }
+
     // ===== Assignment AI Analysis =====
 
     /**
      * Belirli bir sınav ödevi (assignment) için daha önce üretilmiş AI analizini getirir.
      */
-    async getAssignmentAnalysis(assignmentId: string, userId: string) {
+    async getAssignmentAnalysis(assignmentId: string, requestUserId: string) {
+        const user = await this.prisma.user.findUnique({ where: { id: requestUserId } });
+        const isAdmin = user?.role === 'ADMIN';
+        const isTeacher = user?.role === 'TEACHER';
+
+        const where: any = { id: assignmentId };
+
+        if (!isAdmin) {
+            if (isTeacher) {
+                where.student = { teacherId: requestUserId };
+            } else {
+                where.student = { userId: requestUserId };
+            }
+        }
+
         const assignment = await this.prisma.assignment.findFirst({
-            where: {
-                id: assignmentId,
-                student: { userId },
-            },
+            where,
             select: {
                 id: true,
                 title: true,
@@ -647,6 +715,8 @@ export class CoachingService {
         });
 
         if (!assignment) {
+            // Eğer hala bulunamadıysa ve kullanıcı öğretmense (belki ortak ödev vs) 
+            // ama burada student üzerinden kısıtlıyoruz. 
             return null;
         }
 

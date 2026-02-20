@@ -63,6 +63,24 @@ export class CoachingController {
         );
     }
 
+    @Get('history/student/:studentId')
+    @Roles(Role.TEACHER, Role.ADMIN)
+    async getStudentHistory(
+        @GetUser('userId') teacherUserId: string,
+        @Param('studentId') studentId: string,
+        @Query('page') page?: string,
+        @Query('limit') limit?: string,
+        @Query('action') action?: string,
+    ) {
+        return this.coachingService.getStudentHistoryForTeacher(
+            teacherUserId,
+            studentId,
+            page ? parseInt(page, 10) : 1,
+            limit ? parseInt(limit, 10) : 5,
+            action,
+        );
+    }
+
     @Get('assignment/:assignmentId/analysis')
     @Roles(Role.STUDENT, Role.TEACHER, Role.ADMIN)
     async getAssignmentAnalysis(
