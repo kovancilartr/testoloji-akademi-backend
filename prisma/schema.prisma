@@ -63,6 +63,7 @@ model User {
   assignedQuestions StudentQuestion[]
   
   phone         String?   // WhatsApp entegrasyonu için
+  deviceTokens  String[]  @default([]) // Push bildirimleri için cihaz tokenları
 }
 
 // ... (other models)

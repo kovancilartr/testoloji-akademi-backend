@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Param, UseGuards, Post, Delete } from '@nestjs/common';
+import { Controller, Get, Patch, Param, UseGuards, Post, Delete, Body } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetUser } from '../common/decorators/get-user.decorator';
@@ -42,5 +42,13 @@ export class NotificationsController {
         @Param('id') id: string
     ) {
         return this.notificationsService.delete(userId, id);
+    }
+
+    @Post('register-device')
+    async registerDevice(
+        @GetUser('userId') userId: string,
+        @Body('token') token: string
+    ) {
+        return this.notificationsService.registerDeviceToken(userId, token);
     }
 }
