@@ -49,7 +49,7 @@ export class AcademyService {
                     phone,
                     parentPhone,
                     notes,
-                    dailyQuestionLimit: dto.dailyQuestionLimit || 5, // Varsayılan 5
+                    dailyQuestionLimit: dto.dailyQuestionLimit || 0, // 0 = Paket varsayılanı
                 },
             });
         });

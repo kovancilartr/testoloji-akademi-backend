@@ -84,7 +84,8 @@ export class CoachingService {
                 [SubscriptionTier.FREE]: 1
             };
 
-            return user?.dailyAiLimit || tierAiLimits[user?.tier as SubscriptionTier] || 1;
+            const tierDefault = tierAiLimits[user?.tier as SubscriptionTier] || 1;
+            return user?.dailyAiLimit > 0 ? user.dailyAiLimit : tierDefault;
         } catch {
             return 1;
         }

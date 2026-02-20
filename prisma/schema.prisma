@@ -31,7 +31,7 @@ model User {
   isActive      Boolean   @default(true)
   hasCoachingAccess Boolean @default(false)
   passwordChangeRequired Boolean @default(false)
-  dailyAiLimit  Int       @default(10) // Admin tarafından ayarlanabilir günlük AI limiti
+  dailyAiLimit  Int       @default(0) // Günlük AI kullanım limiti (0 = Paket varsayılanı)
   
   projects      Project[]
   refreshTokens RefreshToken[]
@@ -172,7 +172,7 @@ model Student {
   phone String?
   parentPhone String? // Veli telefonu, raporlama için
   gradeLevel String?
-  dailyQuestionLimit Int @default(5) // Günlük soru sorma limiti
+  dailyQuestionLimit Int @default(0) // Günlük soru sorma limiti (0 = Paket varsayılanı)
   notes String? // Öğretmen notları
   
   assignments Assignment[]

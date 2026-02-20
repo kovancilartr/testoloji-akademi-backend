@@ -50,7 +50,12 @@ export class StudentQuestionsService {
             [SubscriptionTier.FREE]: 1
         };
 
-        const DAILY_LIMIT = student.dailyQuestionLimit || tierQuestionLimits[student.user?.tier as SubscriptionTier] || 1;
+        // Limit hesaplama: Eğer özel ayarlanmış (> 0) onu kullan, yoksa paket limitini kullan
+        const tierDefault = tierQuestionLimits[student.user?.tier as SubscriptionTier] || 1;
+        const DAILY_LIMIT = student.dailyQuestionLimit > 0
+            ? student.dailyQuestionLimit
+            : tierDefault;
+
         const todayCount = student.questions.length;
 
         if (todayCount >= DAILY_LIMIT) {
@@ -223,7 +228,10 @@ export class StudentQuestionsService {
             [SubscriptionTier.FREE]: 1
         };
 
-        const currentLimit = student.dailyQuestionLimit || tierQuestionLimits[student.user?.tier as SubscriptionTier] || 1;
+        const tierDefault = tierQuestionLimits[student.user?.tier as SubscriptionTier] || 1;
+        const currentLimit = student.dailyQuestionLimit > 0
+            ? student.dailyQuestionLimit
+            : tierDefault;
 
         return {
             limit: currentLimit,
