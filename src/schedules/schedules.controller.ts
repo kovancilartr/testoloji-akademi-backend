@@ -14,6 +14,17 @@ import { CoachingAccessGuard } from '../auth/guards/coaching-access.guard';
 export class SchedulesController {
     constructor(private readonly schedulesService: SchedulesService) { }
 
+    @Get('stats')
+    @Roles(Role.TEACHER, Role.ADMIN, Role.STUDENT)
+    async getStats(
+        @GetUser('userId') userId: string,
+        @GetUser('role') role: Role,
+        @Query('studentId') studentId?: string,
+    ) {
+        return this.schedulesService.getStats(userId, role, studentId);
+    }
+
+
     @Get()
     @Roles(Role.TEACHER, Role.ADMIN, Role.STUDENT)
     async getSchedule(

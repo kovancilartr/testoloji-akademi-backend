@@ -139,13 +139,71 @@ export class SchedulesService {
             where.student = { teacherId: userId };
         }
 
-        const existing = await this.prisma.schedule.findFirst({ where });
-        if (!existing) throw new NotFoundException('Kayıt bulunamadı.');
+        const check = await this.prisma.schedule.findFirst({ where });
+        if (!check) throw new NotFoundException('Kayıt bulunamadı.');
 
         return await this.prisma.schedule.update({
             where: { id: scheduleId },
             data: { isCompleted },
         });
+    }
+
+    async getStats(userId: string, role: Role, studentId?: string) {
+        let targetStudentId: string;
+
+        if (role === Role.STUDENT) {
+            const student = await this.prisma.student.findFirst({ where: { userId } });
+            if (!student) {
+                return { total: 0, completed: 0, percentage: 0, daily: [] };
+            }
+            targetStudentId = student.id;
+        } else {
+            if (!studentId) throw new ForbiddenException('Öğrenci ID belirtilmelidir.');
+            const student = await this.prisma.student.findFirst({
+                where: { id: studentId, teacherId: userId }
+            });
+            if (!student) throw new ForbiddenException('Öğrenciye erişim yetkiniz yok.');
+            targetStudentId = student.id;
+        }
+
+        const schedules = await this.prisma.schedule.findMany({
+            where: { studentId: targetStudentId },
+        });
+
+        const total = schedules.length;
+        const completed = schedules.filter(s => s.isCompleted).length;
+        const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+        // Last 7 days daily stats
+        const daily: any[] = [];
+        for (let i = 6; i >= 0; i--) {
+            const date = new Date();
+            date.setDate(date.getDate() - i);
+            const dateStr = date.toISOString().split('T')[0];
+            const dayOfWeek = date.getDay() === 0 ? 7 : date.getDay();
+
+            const dayTasks = schedules.filter(s => {
+                if (s.date) {
+                    const sDateStr = s.date.toISOString().split('T')[0];
+                    return sDateStr === dateStr;
+                }
+                return s.dayOfWeek === dayOfWeek;
+            });
+
+            daily.push({
+                date: dateStr,
+                label: i === 0 ? 'Bugün' : date.toLocaleDateString('tr-TR', { weekday: 'short' }),
+                total: dayTasks.length,
+                completed: dayTasks.filter(s => s.isCompleted).length
+            });
+        }
+
+        return {
+            total,
+            completed,
+            percentage,
+            daily
+        };
     }
 
     async createBulk(teacherId: string, dtos: CreateScheduleDto[]) {
