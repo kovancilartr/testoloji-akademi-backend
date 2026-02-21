@@ -4,7 +4,7 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 // .env'deki anahtar
-const envKey = "AIzaSyAduHhHFr2BJAjv6g0YyBE0vz76JDFv6fM";
+const envKey = process.env.GEMINI_API_KEY;
 
 async function testModel(apiKey, modelName) {
     try {

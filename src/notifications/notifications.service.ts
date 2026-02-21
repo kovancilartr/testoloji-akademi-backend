@@ -1,9 +1,11 @@
 import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { NotificationType } from '@prisma/client';
+import { NotificationType, BroadcastStatus } from '@prisma/client';
 import { NotificationsGateway } from './notifications.gateway';
 import * as admin from 'firebase-admin';
 import { ConfigService } from '@nestjs/config';
+import { CreateBroadcastDto } from './dto/create-broadcast.dto';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class NotificationsService {
@@ -13,6 +15,101 @@ export class NotificationsService {
         @Inject(forwardRef(() => NotificationsGateway)) private notificationsGateway: NotificationsGateway
     ) {
         this.initializeFirebase();
+    }
+
+    // Her dakika planlanmış bildirimleri kontrol et
+    @Cron(CronExpression.EVERY_MINUTE)
+    async handleScheduledNotifications() {
+        const now = new Date();
+        const pendingBroadcasts = await this.prisma.notificationBroadcast.findMany({
+            where: {
+                status: BroadcastStatus.SCHEDULED,
+                scheduledFor: {
+                    lte: now
+                }
+            }
+        });
+
+        for (const broadcast of pendingBroadcasts) {
+            await this.executeBroadcast(broadcast);
+        }
+    }
+
+    private async executeBroadcast(broadcast: any) {
+        try {
+            // Her bir hedef kullanıcı için bildirim oluştur
+            for (const userId of broadcast.targetUserIds) {
+                const notification = await this.prisma.notification.create({
+                    data: {
+                        userId,
+                        title: broadcast.title,
+                        message: broadcast.message,
+                        link: broadcast.link,
+                        type: NotificationType.INFO
+                    },
+                });
+
+                // WebSocket üzerinden anlık gönder
+                this.notificationsGateway.sendToUser(userId, 'new_notification', notification);
+
+                // Push Notification gönder
+                await this.sendPushNotification(userId, broadcast.title, broadcast.message, broadcast.link, broadcast.id);
+            }
+
+            // Durumu güncelle
+            await this.prisma.notificationBroadcast.update({
+                where: { id: broadcast.id },
+                data: { status: BroadcastStatus.SENT }
+            });
+            console.log(`Broadcast ${broadcast.id} sent successfully.`);
+        } catch (error) {
+            console.error(`Broadcast ${broadcast.id} failed:`, error);
+            await this.prisma.notificationBroadcast.update({
+                where: { id: broadcast.id },
+                data: { status: BroadcastStatus.FAILED }
+            });
+        }
+    }
+
+    async createBroadcast(teacherId: string, dto: CreateBroadcastDto) {
+        const scheduledFor = dto.scheduledFor ? new Date(dto.scheduledFor) : null;
+        const status = scheduledFor ? BroadcastStatus.SCHEDULED : BroadcastStatus.PENDING;
+
+        const broadcast = await this.prisma.notificationBroadcast.create({
+            data: {
+                senderId: teacherId,
+                title: dto.title,
+                message: dto.message,
+                link: dto.link,
+                targetUserIds: dto.targetUserIds,
+                scheduledFor,
+                status
+            }
+        });
+
+        // Eğer planlanmamışsa hemen gönder
+        if (status === BroadcastStatus.PENDING) {
+            await this.executeBroadcast(broadcast);
+        }
+
+        return broadcast;
+    }
+
+    async getBroadcastHistory(teacherId: string) {
+        return this.prisma.notificationBroadcast.findMany({
+            where: { senderId: teacherId },
+            orderBy: { createdAt: 'desc' },
+            take: 50
+        });
+    }
+
+    async deleteBroadcast(teacherId: string, broadcastId: string) {
+        return this.prisma.notificationBroadcast.delete({
+            where: {
+                id: broadcastId,
+                senderId: teacherId // Sadece kendi sildiklerini silsin
+            }
+        });
     }
 
     private initializeFirebase() {
@@ -56,58 +153,127 @@ export class NotificationsService {
         return notification;
     }
 
-    async registerDeviceToken(userId: string, token: string) {
+    async registerDeviceToken(userId: string, token: string, oldToken?: string) {
         const user = await this.prisma.user.findUnique({
             where: { id: userId },
             select: { deviceTokens: true }
         });
 
-        if (user && !user.deviceTokens.includes(token)) {
-            await this.prisma.user.update({
-                where: { id: userId },
-                data: {
-                    deviceTokens: {
-                        push: token
-                    }
-                }
-            });
+        if (!user) return { success: false };
+
+        let updatedTokens = [...user.deviceTokens];
+
+        // Eğer eski bir token belirtilmişse ve listede varsa, onu çıkar
+        if (oldToken && updatedTokens.includes(oldToken)) {
+            updatedTokens = updatedTokens.filter(t => t !== oldToken);
         }
+
+        // Yeni token listede yoksa ekle
+        if (!updatedTokens.includes(token)) {
+            updatedTokens.push(token);
+        }
+
+        // Güvenlik: Bir kullanıcı için çok fazla token birikmesini önleyelim (Limit: 5)
+        if (updatedTokens.length > 5) {
+            updatedTokens = updatedTokens.slice(-5);
+        }
+
+        await this.prisma.user.update({
+            where: { id: userId },
+            data: {
+                deviceTokens: {
+                    set: updatedTokens
+                }
+            }
+        });
+
         return { success: true };
     }
 
-    private async sendPushNotification(userId: string, title: string, body: string, link?: string) {
-        const user = await this.prisma.user.findUnique({
-            where: { id: userId },
-            select: { deviceTokens: true }
-        });
+    private async sendPushNotification(userId: string, title: string, body: string, link?: string, tag?: string) {
+        console.log(`[PUSH] Bildirim süreci başladı. Hedef: ${userId}`);
 
-        if (!user || user.deviceTokens.length === 0 || !admin.apps.length) {
+        if (!admin.apps.length) {
+            console.error(`[PUSH] HATA: Firebase Admin SDK başlatılmamış! .env dosyasını kontrol edin.`);
             return;
         }
 
-        const message = {
-            notification: { title, body },
-            data: { link: link || '' },
-            tokens: user.deviceTokens,
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            select: { deviceTokens: true, name: true }
+        });
+
+        if (!user) {
+            console.warn(`[PUSH] UYARI: Kullanıcı bulunamadı (ID: ${userId})`);
+            return;
+        }
+
+        const uniqueTokens = Array.from(new Set(user.deviceTokens.filter(t => !!t)));
+
+        if (uniqueTokens.length === 0) {
+            console.log(`[PUSH] BILGI: Kullanıcının (${user.name}) kayıtlı cihaz token'ı yok.`);
+            return;
+        }
+
+        console.log(`[PUSH] Gönderiliyor: "${title}" | Alıcı: ${user.name} | Token Sayısı: ${uniqueTokens.length}`);
+
+        const message: any = {
+            notification: {
+                title,
+                body,
+            },
+            data: {
+                title, // Veri kısmına da ekleyelim (yerele göre yedek)
+                body,
+                link: link || '',
+            },
+            webpush: {
+                headers: {
+                    Urgency: 'high',
+                    TTL: '86400', // 24 saat boyunca teslimat denensin
+                },
+                notification: {
+                    title,
+                    body,
+                    icon: '/icon-192x192.png',
+                    badge: '/icon-192x192.png',
+                    tag: tag || 'general-notification',
+                    renotify: true, // Aynı tag'li yeni bildirimde titreşim/ses tekrar çalışsın
+                    requireInteraction: true, // Kullanıcı kapatana kadar ekranda kalsın
+                }
+            },
+            android: {
+                priority: 'high',
+                notification: {
+                    priority: 'max',
+                    channelId: 'default',
+                    defaultSound: true,
+                    defaultVibrateTimings: true,
+                }
+            },
+            tokens: uniqueTokens,
         };
 
         try {
             const response = await admin.messaging().sendEachForMulticast(message);
-            console.log(`Push notifications sent: ${response.successCount} success, ${response.failureCount} failure`);
+            console.log(`[PUSH] SONUÇ (${user.name}): Başarılı: ${response.successCount}, Başarısız: ${response.failureCount}`);
 
-            // Check for invalid tokens and remove them
             if (response.failureCount > 0) {
                 const invalidTokens: string[] = [];
                 response.responses.forEach((resp, idx) => {
-                    if (!resp.success && (
-                        resp.error?.code === 'messaging/invalid-registration-token' ||
-                        resp.error?.code === 'messaging/registration-token-not-registered'
-                    )) {
-                        invalidTokens.push(user.deviceTokens[idx]);
+                    if (!resp.success) {
+                        const errorCode = resp.error?.code;
+                        console.error(`[PUSH] Cihaz Hatası (${uniqueTokens[idx].substring(0, 10)}...):`, errorCode);
+
+                        if (errorCode === 'messaging/invalid-registration-token' ||
+                            errorCode === 'messaging/registration-token-not-registered') {
+                            invalidTokens.push(uniqueTokens[idx]);
+                        }
                     }
                 });
 
                 if (invalidTokens.length > 0) {
+                    console.log(`[PUSH] Temizlik: ${invalidTokens.length} adet geçersiz token siliniyor.`);
                     await this.prisma.user.update({
                         where: { id: userId },
                         data: {
@@ -119,7 +285,7 @@ export class NotificationsService {
                 }
             }
         } catch (error) {
-            console.error('Push notification error:', error);
+            console.error(`[PUSH] KRITIK HATA:`, error);
         }
     }
 
