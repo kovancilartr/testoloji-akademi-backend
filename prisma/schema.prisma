@@ -65,6 +65,9 @@ model User {
   // Öğretmen ise gönderdiği genel bildirimler
   sentBroadcasts NotificationBroadcast[] @relation("SentBroadcasts")
   
+  // Öğretmen ise yönettiği sınıflar
+  classrooms    Classroom[] @relation("TeacherClassrooms")
+  
   phone         String?   // WhatsApp entegrasyonu için
   deviceTokens  String[]  @default([]) // Push bildirimleri için cihaz tokenları
 }
@@ -179,6 +182,10 @@ model Student {
   gradeLevel String?
   dailyQuestionLimit Int @default(0) // Günlük soru sorma limiti (0 = Paket varsayılanı)
   notes String? // Öğretmen notları
+  
+  // Hangi sınıfa dahil?
+  classroomId String?
+  classroom Classroom? @relation(fields: [classroomId], references: [id], onDelete: SetNull)
   
   assignments Assignment[]
   schedules   Schedule[]
@@ -514,4 +521,20 @@ enum QuestionStatus {
   PENDING   // Bekliyor
   ANSWERED  // Cevaplandı
   REJECTED  // İptal / Uygunsuz
+}
+
+model Classroom {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  
+  teacherId   String
+  teacher     User     @relation("TeacherClassrooms", fields: [teacherId], references: [id], onDelete: Cascade)
+  
+  students    Student[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([teacherId])
 }

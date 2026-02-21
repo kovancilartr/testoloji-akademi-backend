@@ -29,4 +29,8 @@ export class CreateStudentDto {
     @IsOptional()
     @Min(0)
     dailyQuestionLimit?: number;
+
+    @IsString()
+    @IsOptional()
+    classroomId?: string;
 }

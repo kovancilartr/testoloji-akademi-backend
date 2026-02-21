@@ -14,7 +14,7 @@ export class AcademyService {
     ) { }
 
     async createStudent(teacherId: string, dto: CreateStudentDto) {
-        const { name, gradeLevel, email, phone, parentPhone, notes } = dto;
+        const { name, gradeLevel, email, phone, parentPhone, notes, classroomId, dailyQuestionLimit } = dto;
 
         return await this.prisma.$transaction(async (tx) => {
             let userId: string | null = null;
@@ -49,7 +49,8 @@ export class AcademyService {
                     phone,
                     parentPhone,
                     notes,
-                    dailyQuestionLimit: dto.dailyQuestionLimit || 0, // 0 = Paket varsayılanı
+                    dailyQuestionLimit: dailyQuestionLimit || 0, // 0 = Paket varsayılanı
+                    classroomId: classroomId || null,
                 },
             });
         });
@@ -63,6 +64,9 @@ export class AcademyService {
                 _count: {
                     select: { assignments: true },
                 },
+                classroom: {
+                    select: { id: true, name: true }
+                }
             },
         });
     }
@@ -80,6 +84,9 @@ export class AcademyService {
                 schedules: {
                     orderBy: { dayOfWeek: 'asc' },
                 },
+                classroom: {
+                    select: { id: true, name: true }
+                }
             },
         });
 

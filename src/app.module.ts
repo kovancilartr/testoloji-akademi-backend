@@ -19,6 +19,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { CoachingModule } from './coaching/coaching.module';
 import { SystemSettingsModule } from './system-settings/system-settings.module';
+import { ClassroomsModule } from './classrooms/classrooms.module';
 import { StudentQuestionsModule } from './student-questions/student-questions.module';
 
 @Module({
@@ -63,6 +64,7 @@ import { StudentQuestionsModule } from './student-questions/student-questions.mo
     NotificationsModule,
     CoachingModule,
     SystemSettingsModule,
+    ClassroomsModule,
     StudentQuestionsModule
   ],
   controllers: [AppController],
