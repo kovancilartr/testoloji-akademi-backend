@@ -138,6 +138,51 @@ export class FocusService {
         });
     }
 
+    async getClassActiveCount(userId: string) {
+        const student = await this.prisma.student.findUnique({
+            where: { userId },
+            include: { classroom: true }
+        });
+
+        if (!student || !student.classroomId) {
+            return { count: 0, className: null, activeStudents: [] };
+        }
+
+        const activeSessions = await this.prisma.focusSession.findMany({
+            where: {
+                status: FocusStatus.IN_PROGRESS,
+                student: {
+                    classroomId: student.classroomId,
+                    id: { not: student.id } // Kendi oturumunu listeleme (isteğe bağlı, ama genelde mantıklı)
+                }
+            },
+            include: {
+                student: {
+                    select: { name: true }
+                }
+            },
+            take: 20 // Sınırla (Ekrana çok fazla balon dolmasın)
+        });
+
+        // İsimleri "Fatih Y." formatına getirme (Gizlilik için)
+        const formattedStudents = activeSessions.map(session => {
+            const nameParts = session.student.name.split(' ');
+            const firstName = nameParts[0];
+            const lastNameInitial = nameParts.length > 1 ? `${nameParts[nameParts.length - 1][0]}.` : '';
+            return {
+                id: session.id,
+                name: `${firstName} ${lastNameInitial}`.trim(),
+                subject: session.subject
+            };
+        });
+
+        return {
+            count: formattedStudents.length,
+            className: student.classroom?.name || null,
+            activeStudents: formattedStudents
+        };
+    }
+
     async getActiveSessions(teacherId: string) {
         // Auto-cancel stale sessions (older than 3 hours)
         const threeHoursAgo = new Date(Date.now() - 3 * 60 * 60 * 1000);

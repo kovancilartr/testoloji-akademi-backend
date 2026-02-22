@@ -26,6 +26,27 @@ export class AssignmentsController {
         return this.assignmentsService.listAssignments(userId, role, studentId);
     }
 
+    @Get('student/make-up-suggestions')
+    @Roles(Role.STUDENT)
+    async getMakeUpSuggestions(@GetUser('userId') userId: string) {
+        return this.assignmentsService.getMakeUpSuggestions(userId);
+    }
+
+    @Post(':id/create-makeup')
+    @Roles(Role.STUDENT)
+    async createMakeUpAssignment(
+        @GetUser('userId') userId: string,
+        @Param('id') assignmentId: string
+    ) {
+        return this.assignmentsService.createMakeUpAssignment(userId, assignmentId);
+    }
+
+    @Post('student/create-combined-makeup')
+    @Roles(Role.STUDENT)
+    async createCombinedMakeUpAssignment(@GetUser('userId') userId: string) {
+        return this.assignmentsService.createCombinedMakeUpAssignment(userId);
+    }
+
     @Post()
     @Roles(Role.TEACHER, Role.ADMIN)
     async createAssignments(@Body() dto: CreateAssignmentsDto) {

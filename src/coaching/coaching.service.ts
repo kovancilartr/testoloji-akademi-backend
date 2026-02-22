@@ -1,7 +1,7 @@
 import { Injectable, ForbiddenException, InternalServerErrorException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
-import { Role, SubscriptionTier } from '@prisma/client';
+import { Role, SubscriptionTier, FocusStatus } from '@prisma/client';
 import { GoogleGenerativeAI, Part } from '@google/generative-ai';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -339,6 +339,39 @@ export class CoachingService {
                         // Add schedule summary (last 30 days)
                         const scheduleSummary = await this.schedulesService.getScheduleSummary(targetStudent.id);
                         studentData.scheduleSummary = scheduleSummary;
+
+                        // Add makeup suggestions summary
+                        const pendingMakeups = await this.prisma.assignment.findMany({
+                            where: {
+                                studentId: targetStudent.id,
+                                type: 'TEST',
+                                status: 'COMPLETED',
+                                incorrectCount: { gt: 0 },
+                                NOT: [
+                                    { title: { contains: 'Tekrar Testi' } },
+                                    { title: { contains: 'Karma Telafi' } }
+                                ]
+                            },
+                            select: { title: true, incorrectCount: true },
+                            orderBy: { completedAt: 'asc' },
+                            take: 10
+                        });
+                        studentData.makeUpNeeds = pendingMakeups;
+
+                        // Add focus sessions summary
+                        const thirtyDaysAgo = new Date();
+                        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                        const recentFocusSessions = await this.prisma.focusSession.findMany({
+                            where: {
+                                studentId: targetStudent.id,
+                                status: FocusStatus.COMPLETED,
+                                createdAt: { gte: thirtyDaysAgo }
+                            },
+                            select: { subject: true, duration: true, interruptionCount: true, createdAt: true },
+                            orderBy: { createdAt: 'desc' },
+                            take: 20
+                        });
+                        studentData.recentFocusSessions = recentFocusSessions;
                     }
                 } catch (e) {
                     console.warn('Analytics/Schedule data could not be fetched:', userId, dto.studentId);
@@ -814,6 +847,27 @@ export class CoachingService {
                 - Program Uyum Oranı: %${studentData.scheduleSummary.completionRate}
                 - Ders Bazlı Çalışma Dağılımı: ${JSON.stringify(studentData.scheduleSummary.subjectStats)}
                 \n`;
+            }
+
+            if (studentData.recentFocusSessions && studentData.recentFocusSessions.length > 0) {
+                const totalFocusMinutes = studentData.recentFocusSessions.reduce((acc: number, curr: any) => acc + curr.duration, 0);
+                const mostStudiedSubjects = studentData.recentFocusSessions.reduce((acc: any, curr: any) => {
+                    acc[curr.subject] = (acc[curr.subject] || 0) + curr.duration;
+                    return acc;
+                }, {});
+
+                prompt += `Öğrencinin Son 30 Günlük Focus Studio (Odaklanma) Özeti:
+                - Toplam Odaklanma Başarıları: ${studentData.recentFocusSessions.length} Oturum
+                - Toplam Odak Süresi: ${totalFocusMinutes} dakika
+                - Dikkat Dağıtma / Bölünme Ortalaması: ${(studentData.recentFocusSessions.reduce((acc: number, curr: any) => acc + curr.interruptionCount, 0) / studentData.recentFocusSessions.length).toFixed(1)} kez/oturum
+                - Ders Bazlı Odaklanma Dağılımı (Dakika): ${JSON.stringify(mostStudiedSubjects)}
+                Focus verilerini kullanarak öğrencinin çalışma sürekliliği, dikkat dağınıklığı oranı ve hangi derse ne kadar yoğunlaştığını yorumla. Öğrenciyi verimli çalışmaya teşvik et.\n`;
+            }
+
+            if (studentData.makeUpNeeds && studentData.makeUpNeeds.length > 0) {
+                prompt += `Öğrencinin Hata Havuzunda (Telafi Bekleyen) Sınavları:
+                - ${studentData.makeUpNeeds.map((m: any) => `${m.title} (${m.incorrectCount} yanlış)`).join(", ")}
+                Lütfen öğrenciye sınav analizinde eksiği olan konularla ilgili tavsiye verirken şunları kullan: Öğrencinin "Akıllı Hata Havuzu" (ve "Tüm Hataları Tek Bir Test Yap" butonu) özelliğini kullanarak tekrar etmesini tavsiye et (Öğrenci arayüzünde Akıllı Hata Havuzu özelliği mevcut!). Böylece öğrenme eksiklerini kapatabileceğini belirt.\n`;
             }
         }
 

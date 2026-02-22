@@ -29,6 +29,11 @@ export class FocusController {
         return this.focusService.getStudentHistory(req.user.userId);
     }
 
+    @Get('student/class-active-count')
+    getClassActiveCount(@Request() req) {
+        return this.focusService.getClassActiveCount(req.user.userId);
+    }
+
     @Get('teacher/active')
     getActiveSessions(@Request() req) {
         return this.focusService.getActiveSessions(req.user.userId);
