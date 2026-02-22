@@ -47,14 +47,39 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
         if (data?.userId) {
             client.join(`user_${data.userId}`);
             this.connectedClients.set(client.id, data.userId);
-            console.log(`Client ${client.id} joined user room user_${data.userId}`);
+            console.log(`[Socket] Client ${client.id} joined room: user_${data.userId}`);
             return { event: 'joined', success: true };
         }
+        console.warn(`[Socket] Client ${client.id} failed to join: userId missing`);
         return { event: 'error', message: 'UserId not provided' };
     }
 
     // Helper method to let system emit specific events to specific users
     sendToUser(userId: string, event: string, payload: any) {
         this.server.to(`user_${userId}`).emit(event, payload);
+    }
+
+    // Student sends lightweight focus tick directly to teacher (no DB)
+    @SubscribeMessage('focus_tick')
+    handleFocusTick(
+        @ConnectedSocket() client: Socket,
+        @MessageBody() data: {
+            teacherId: string;
+            sessionId: string;
+            actualTime: number;
+            breakTime: number;
+            isActive: boolean;
+            mode: string;
+        }
+    ) {
+        if (data?.teacherId && data?.sessionId) {
+            this.server.to(`user_${data.teacherId}`).emit('focus_tick', {
+                sessionId: data.sessionId,
+                actualTime: data.actualTime,
+                breakTime: data.breakTime,
+                isActive: data.isActive,
+                mode: data.mode
+            });
+        }
     }
 }

@@ -195,9 +195,39 @@ model Student {
   contentProgress ContentProgress[]
   
   questions StudentQuestion[]
+  focusSessions FocusSession[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model FocusSession {
+  id          String   @id @default(cuid())
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  subject     String   // TYT Matematik, Geometri vb.
+  duration    Int      // Hedeflenen süre (dakika)
+  actualTime  Int      @default(0) // Gerçekleşen çalışma süresi (dakika)
+  breakTime   Int      @default(0) // Toplam mola süresi (dakika)
+  status      FocusStatus @default(IN_PROGRESS)
+  
+  startTime   DateTime @default(now())
+  endTime     DateTime?
+  
+  interruptionCount Int @default(0) // Odak bölünme sayısı
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([studentId])
+}
+
+enum FocusStatus {
+  IN_PROGRESS
+  COMPLETED
+  INTERRUPTED
+  CANCELLED
 }
 
 model Assignment {

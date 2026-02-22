@@ -21,6 +21,7 @@ import { CoachingModule } from './coaching/coaching.module';
 import { SystemSettingsModule } from './system-settings/system-settings.module';
 import { ClassroomsModule } from './classrooms/classrooms.module';
 import { StudentQuestionsModule } from './student-questions/student-questions.module';
+import { FocusModule } from './focus/focus.module';
 
 @Module({
   imports: [
@@ -65,7 +66,8 @@ import { StudentQuestionsModule } from './student-questions/student-questions.mo
     CoachingModule,
     SystemSettingsModule,
     ClassroomsModule,
-    StudentQuestionsModule
+    StudentQuestionsModule,
+    FocusModule
   ],
   controllers: [AppController],
   providers: [AppService],
