@@ -112,6 +112,14 @@ export class NotificationsService {
         });
     }
 
+    async clearBroadcastHistory(teacherId: string) {
+        return this.prisma.notificationBroadcast.deleteMany({
+            where: {
+                senderId: teacherId
+            }
+        });
+    }
+
     private initializeFirebase() {
         if (!admin.apps.length) {
             const serviceAccount = this.configService.get('FIREBASE_SERVICE_ACCOUNT');

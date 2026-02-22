@@ -191,4 +191,22 @@ export class FocusService {
             take: 100 // Limit to last 100 for now
         });
     }
+
+    async clearTeacherAllStudentsHistory(teacherId: string) {
+        // Find all student IDs that belong to the teacher
+        const students = await this.prisma.student.findMany({
+            where: { teacherId },
+            select: { id: true }
+        });
+
+        const studentIds = students.map(s => s.id);
+
+        if (studentIds.length === 0) return { count: 0 };
+
+        return this.prisma.focusSession.deleteMany({
+            where: {
+                studentId: { in: studentIds }
+            }
+        });
+    }
 }

@@ -37,6 +37,12 @@ export class NotificationsController {
         return this.notificationsService.getBroadcastHistory(userId);
     }
 
+    @Delete('broadcast/history/clear-all')
+    @Roles(Role.TEACHER, Role.ADMIN)
+    async clearBroadcastHistory(@GetUser('userId') userId: string) {
+        return this.notificationsService.clearBroadcastHistory(userId);
+    }
+
     @Delete('broadcast/:id')
     @Roles(Role.TEACHER, Role.ADMIN)
     async deleteBroadcast(
