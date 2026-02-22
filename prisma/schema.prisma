@@ -173,7 +173,7 @@ model Student {
 
   // Eğer öğrenci sisteme giriş yapacaksa User tablosu ile eşleşir
   userId String? @unique
-  user User? @relation(fields: [userId], references: [id])
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   name String
   email String?

@@ -103,6 +103,22 @@ export class UsersService {
     }
 
     async deleteUser(userId: string) {
+        // Önce öğrenci profilini ve bağlı verileri sil (cascade yedek güvenlik)
+        const student = await this.prisma.student.findUnique({ where: { userId } });
+        if (student) {
+            // Öğrenciye ait tüm verileri temizle
+            await this.prisma.$transaction([
+                this.prisma.focusSession.deleteMany({ where: { studentId: student.id } }),
+                this.prisma.schedule.deleteMany({ where: { studentId: student.id } }),
+                this.prisma.assignment.deleteMany({ where: { studentId: student.id } }),
+                this.prisma.courseEnrollment.deleteMany({ where: { studentId: student.id } }),
+                this.prisma.contentProgress.deleteMany({ where: { studentId: student.id } }),
+                this.prisma.studentQuestion.deleteMany({ where: { studentId: student.id } }),
+                this.prisma.student.delete({ where: { id: student.id } }),
+            ]);
+        }
+
+        // Sonra User kaydını sil (cascade ile kalan ilişkiler de silinir)
         return this.prisma.user.delete({
             where: { id: userId },
         });
