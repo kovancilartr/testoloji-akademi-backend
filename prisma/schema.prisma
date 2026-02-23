@@ -605,6 +605,9 @@ model LiveSession {
   startedAt     DateTime?  // Gerçek başlangıç zamanı
   endedAt       DateTime?  // Bitiş zamanı
   
+  egressId      String?    // LiveKit Egress ID (Kayıt takibi için)
+  recordingKey  String?    // S3/R2 üzerindeki dosya yolu
+  
   participants  LiveSessionParticipant[]
   
   createdAt     DateTime @default(now())
@@ -641,6 +644,12 @@ model LiveKitConfig {
   apiKey      String   // Şifrelenmiş
   apiSecret   String   // Şifrelenmiş
   url         String?  // Opsiyonel, farklı bir sunucu ise (wss://...)
+  
+  // R2 / S3 Ayarları
+  s3Endpoint  String?
+  s3AccessKey String?  // Şifrelenmiş
+  s3SecretKey String?  // Şifrelenmiş
+  s3Bucket    String?
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

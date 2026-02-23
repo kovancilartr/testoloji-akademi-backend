@@ -1,9 +1,11 @@
 import { Injectable, ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
-import { AccessToken, VideoGrant } from 'livekit-server-sdk';
+import { AccessToken, VideoGrant, EgressClient, EncodedFileOutput, EncodedFileType, RoomServiceClient } from 'livekit-server-sdk';
 import { CreateLiveSessionDto, UpdateLiveKitConfigDto } from './dto/live-session.dto';
 import { EncryptionUtil } from '../common/utils/encryption.util';
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 // Plan bazlı kota limitleri
 const PLAN_LIMITS = {
@@ -88,7 +90,19 @@ export class LiveSessionsService {
         // Unique oda adı oluştur
         const roomName = `testoloji-live-${userId.slice(-6)}-${Date.now()}`;
 
-        const session = await this.prisma.liveSession.create({
+        // Kayıt özelliklerini başlat (Eğer R2 tanımlıysa)
+        let egressId: string | null = null;
+        let recordingKey: string | null = null;
+
+        if (teacherConfig) {
+            const recording = await this.startRecording(roomName, teacherConfig, userId);
+            if (recording) {
+                egressId = recording.egressId;
+                recordingKey = recording.recordingKey;
+            }
+        }
+
+        const session = await (this.prisma.liveSession as any).create({
             data: {
                 teacherId: userId,
                 classroomId: dto.classroomId || null,
@@ -98,11 +112,15 @@ export class LiveSessionsService {
                 maxParticipants: limits.maxParticipants,
                 maxDuration: limits.maxDuration,
                 startedAt: new Date(),
+                egressId,
+                recordingKey
             },
             include: {
                 classroom: { select: { id: true, name: true } },
             }
         });
+
+        console.log(`[LiveSession] Created session: ${session.id}, Egress: ${egressId}, Key: ${recordingKey}`);
 
         // Öğretmen için LiveKit token oluştur
         const tokenToken = await this.generateToken(roomName, user.name || 'Öğretmen', userId, true, userId);
@@ -196,6 +214,11 @@ export class LiveSessionsService {
         if (session.teacherId !== userId) throw new ForbiddenException('Bu dersi sadece dersin sahibi bitirebilir.');
         if (session.status !== 'LIVE') throw new BadRequestException('Bu ders zaten aktif değil.');
 
+        // Kaydı durdur (Eğer varsa)
+        if ((session as any).egressId) {
+            await this.stopRecording(userId, (session as any).egressId);
+        }
+
         const updated = await this.prisma.liveSession.update({
             where: { id: sessionId },
             data: {
@@ -209,6 +232,161 @@ export class LiveSessionsService {
         });
 
         return updated;
+    }
+
+    /**
+     * Kayıt indirme URL'i oluştur (Pre-signed)
+     */
+    async getDownloadUrl(userId: string, sessionId: string) {
+        const session = await this.prisma.liveSession.findUnique({
+            where: { id: sessionId },
+            include: {
+                teacher: {
+                    include: { liveKitConfig: true }
+                }
+            }
+        });
+
+        if (!session || !(session as any).recordingKey) {
+            throw new NotFoundException('Ders kaydı bulunamadı.');
+        }
+
+        // --- YETKİ KONTROLÜ ---
+        // 1. Kullanıcı bu dersin öğretmeni mi?
+        if (session.teacherId !== userId) {
+            // 2. Değilse, bu öğretmenin öğrencisi mi?
+            const student = await this.prisma.student.findFirst({
+                where: { userId, teacherId: session.teacherId }
+            });
+
+            if (!student) {
+                throw new ForbiddenException('Bu kaydı indirme yetkiniz yok.');
+            }
+        }
+
+        const config = session.teacher.liveKitConfig as any;
+        if (!config || !config.s3Endpoint || !config.s3AccessKey || !config.s3SecretKey || !config.s3Bucket) {
+            throw new BadRequestException('Depolama yapılandırması (R2/S3) eksik.');
+        }
+
+        try {
+            const s3Client = new S3Client({
+                region: 'auto',
+                endpoint: config.s3Endpoint,
+                credentials: {
+                    accessKeyId: EncryptionUtil.decrypt(config.s3AccessKey),
+                    secretAccessKey: EncryptionUtil.decrypt(config.s3SecretKey),
+                },
+            });
+
+            const command = new GetObjectCommand({
+                Bucket: config.s3Bucket,
+                Key: (session as any).recordingKey,
+            });
+
+            // 1 saatlik indirme linki oluştur
+            const url = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+            return { url };
+        } catch (error) {
+            console.error('S3 Error:', error);
+            throw new BadRequestException('İndirme bağlantısı oluşturulamadı.');
+        }
+    }
+
+    /**
+     * Kaydı başlat
+     */
+    private async startRecording(roomName: string, config: any, teacherId: string) {
+        if (!config.s3Endpoint || !config.s3AccessKey || !config.s3SecretKey || !config.s3Bucket) {
+            return null;
+        }
+
+        try {
+            // Egress API expects https instead of wss
+            let host = (config as any).url || this.config.get<string>('LIVEKIT_URL') || '';
+            host = host.replace('wss://', 'https://').replace('ws://', 'http://');
+
+            const egressClient = new EgressClient(
+                host,
+                EncryptionUtil.decrypt((config as any).apiKey),
+                EncryptionUtil.decrypt((config as any).apiSecret)
+            );
+
+            // --- ODAYI ÖNCEDEN OLUŞTUR --- 
+            // Oda henüz oluşmadığı için kayıt hatası almamak adına odayı açıkça oluşturuyoruz
+            const roomService = new RoomServiceClient(
+                host,
+                EncryptionUtil.decrypt((config as any).apiKey),
+                EncryptionUtil.decrypt((config as any).apiSecret)
+            );
+
+            try {
+                await roomService.createRoom({ name: roomName, emptyTimeout: 5 * 60 });
+                console.log(`[LiveKit] Room created explicitly: ${roomName}`);
+                // Oda oluşması için çok kısa bir bekleme
+                await new Promise(resolve => setTimeout(resolve, 1500));
+            } catch (re) {
+                console.warn('[LiveKit] Room creation warning:', re);
+            }
+
+            const recordingKey = `recordings/${teacherId}/${roomName}.mp4`;
+
+            // Standard Protobuf-based output object for Egress v2.x
+            // The SDK expects this nested structure for RoomCompositeEgress
+            const output = {
+                file: {
+                    fileType: EncodedFileType.MP4,
+                    filepath: recordingKey,
+                    disableManifest: true,
+                    output: {
+                        case: 's3',
+                        value: {
+                            endpoint: config.s3Endpoint,
+                            accessKey: EncryptionUtil.decrypt(config.s3AccessKey),
+                            secret: EncryptionUtil.decrypt(config.s3SecretKey),
+                            bucket: config.s3Bucket,
+                            forcePathStyle: true,
+                            region: ''
+                        }
+                    }
+                }
+            } as any;
+
+            const info = await egressClient.startRoomCompositeEgress(roomName, output);
+            console.log(`[Egress] Started for room ${roomName}, EgressID: ${info.egressId}`);
+
+            return { egressId: info.egressId, recordingKey };
+        } catch (error: any) {
+            console.error('[Egress] Recording start failed:', error.message || error);
+            return null;
+        }
+    }
+
+    /**
+     * Kaydı durdur
+     */
+    private async stopRecording(teacherId: string, egressId: string) {
+        const config = await this.prisma.liveKitConfig.findUnique({
+            where: { userId: teacherId }
+        });
+
+        if (!config) return;
+
+        try {
+            let host = (config as any).url || this.config.get<string>('LIVEKIT_URL') || '';
+            host = host.replace('wss://', 'https://').replace('ws://', 'http://');
+
+            const egressClient = new EgressClient(
+                host,
+                EncryptionUtil.decrypt((config as any).apiKey),
+                EncryptionUtil.decrypt((config as any).apiSecret)
+            );
+
+            await egressClient.stopEgress(egressId);
+            console.log(`[Egress] Stopped: ${egressId}`);
+        } catch (error: any) {
+            console.error('[Egress] Recording stop failed:', error.message || error);
+        }
     }
 
     /**
@@ -312,13 +490,45 @@ export class LiveSessionsService {
         };
     }
 
+    /**
+     * Geçmiş dersler listesi (Öğrenci)
+     */
+    async getStudentSessionHistory(userId: string) {
+        const student = await this.prisma.student.findFirst({
+            where: { userId },
+            select: { id: true, teacherId: true, classroomId: true }
+        });
+
+        if (!student) return [];
+
+        const sessions = await this.prisma.liveSession.findMany({
+            where: {
+                teacherId: student.teacherId,
+                status: { in: ['ENDED', 'CANCELLED'] },
+                OR: [
+                    { classroomId: null }, // Genel dersler
+                    { classroomId: student.classroomId } // Kendi sınıfına ait dersler
+                ]
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 20,
+            include: {
+                teacher: { select: { name: true } },
+                classroom: { select: { id: true, name: true } },
+                _count: { select: { participants: true } },
+            }
+        });
+
+        return sessions;
+    }
+
     // ─── ADMIN ENDPOINTS ───
 
     /**
      * Tüm öğretmenleri LiveKit konfigürasyonlarıyla birlikte getir
      */
     async getAllTeachersSettings() {
-        const teachers = await this.prisma.user.findMany({
+        const teachers: any[] = await this.prisma.user.findMany({
             where: { role: 'TEACHER' },
             select: {
                 id: true,
@@ -327,21 +537,29 @@ export class LiveSessionsService {
                 tier: true,
                 liveKitConfig: {
                     select: {
+                        id: true,
+                        userId: true,
                         apiKey: true,
                         apiSecret: true,
                         url: true,
-                    }
+                        s3Endpoint: true,
+                        s3AccessKey: true,
+                        s3SecretKey: true,
+                        s3Bucket: true,
+                    } as any
                 }
             }
-        });
+        }) as any;
 
-        // Hassas verileri "maskelenmiş" olarak dön (veya decrypt et gerekirse admin için)
+        // Hassas verileri "maskelenmiş" olarak dön
         return teachers.map(t => ({
             ...t,
             liveKitConfig: t.liveKitConfig ? {
                 ...t.liveKitConfig,
-                apiKey: '********', // Güvenlik için maskele
+                apiKey: '********',
                 apiSecret: '********',
+                s3AccessKey: t.liveKitConfig.s3AccessKey ? '********' : null,
+                s3SecretKey: t.liveKitConfig.s3SecretKey ? '********' : null,
                 isConfigured: true
             } : { isConfigured: false }
         }));
@@ -360,7 +578,11 @@ export class LiveSessionsService {
         return {
             apiKey: EncryptionUtil.decrypt(config.apiKey),
             apiSecret: EncryptionUtil.decrypt(config.apiSecret),
-            url: config.url
+            url: config.url,
+            s3Endpoint: (config as any).s3Endpoint,
+            s3AccessKey: (config as any).s3AccessKey ? EncryptionUtil.decrypt((config as any).s3AccessKey) : null,
+            s3SecretKey: (config as any).s3SecretKey ? EncryptionUtil.decrypt((config as any).s3SecretKey) : null,
+            s3Bucket: (config as any).s3Bucket
         };
     }
 
@@ -370,19 +592,29 @@ export class LiveSessionsService {
     async updateTeacherSettings(dto: UpdateLiveKitConfigDto) {
         const encryptedKey = EncryptionUtil.encrypt(dto.apiKey);
         const encryptedSecret = EncryptionUtil.encrypt(dto.apiSecret);
+        const encryptedS3Key = dto.s3AccessKey ? EncryptionUtil.encrypt(dto.s3AccessKey) : null;
+        const encryptedS3Secret = dto.s3SecretKey ? EncryptionUtil.encrypt(dto.s3SecretKey) : null;
 
         return this.prisma.liveKitConfig.upsert({
             where: { userId: dto.userId },
             update: {
                 apiKey: encryptedKey,
                 apiSecret: encryptedSecret,
-                url: dto.url || null
+                url: dto.url || null,
+                s3Endpoint: dto.s3Endpoint || null,
+                s3AccessKey: encryptedS3Key,
+                s3SecretKey: encryptedS3Secret,
+                s3Bucket: dto.s3Bucket || null
             },
             create: {
                 userId: dto.userId,
                 apiKey: encryptedKey,
                 apiSecret: encryptedSecret,
-                url: dto.url || null
+                url: dto.url || null,
+                s3Endpoint: dto.s3Endpoint || null,
+                s3AccessKey: encryptedS3Key,
+                s3SecretKey: encryptedS3Secret,
+                s3Bucket: dto.s3Bucket || null
             }
         });
     }

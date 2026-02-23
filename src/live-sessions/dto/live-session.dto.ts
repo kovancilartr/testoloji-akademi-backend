@@ -27,4 +27,20 @@ export class UpdateLiveKitConfigDto {
     @IsOptional()
     @IsString()
     url?: string;
+
+    @IsOptional()
+    @IsString()
+    s3Endpoint?: string;
+
+    @IsOptional()
+    @IsString()
+    s3AccessKey?: string;
+
+    @IsOptional()
+    @IsString()
+    s3SecretKey?: string;
+
+    @IsOptional()
+    @IsString()
+    s3Bucket?: string;
 }

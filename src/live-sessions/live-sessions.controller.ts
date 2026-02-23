@@ -36,6 +36,12 @@ export class LiveSessionsController {
         return this.service.getSessionHistory(req.user.userId);
     }
 
+    /** Kayıt indirme URL'i */
+    @Get(':id/download')
+    getDownloadUrl(@Request() req, @Param('id') id: string) {
+        return this.service.getDownloadUrl(req.user.userId, id);
+    }
+
     /** Kota bilgisi */
     @Get('quota')
     getQuota(@Request() req) {
@@ -54,6 +60,18 @@ export class LiveSessionsController {
     @Post(':id/join')
     joinSession(@Request() req, @Param('id') id: string) {
         return this.service.joinSession(req.user.userId, id);
+    }
+
+    /** Öğrenci: geçmiş dersler */
+    @Get('student/history')
+    getStudentHistory(@Request() req) {
+        return this.service.getStudentSessionHistory(req.user.userId);
+    }
+
+    /** Öğrenci: kayıt indirme URL'i */
+    @Get('student/:id/download')
+    getStudentDownloadUrl(@Request() req, @Param('id') id: string) {
+        return this.service.getDownloadUrl(req.user.userId, id);
     }
 
     // ─── ADMIN SETTINGS ENDPOINTS ───
