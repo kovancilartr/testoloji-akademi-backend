@@ -22,6 +22,7 @@ import { SystemSettingsModule } from './system-settings/system-settings.module';
 import { ClassroomsModule } from './classrooms/classrooms.module';
 import { StudentQuestionsModule } from './student-questions/student-questions.module';
 import { FocusModule } from './focus/focus.module';
+import { LiveSessionsModule } from './live-sessions/live-sessions.module';
 
 @Module({
   imports: [
@@ -67,7 +68,8 @@ import { FocusModule } from './focus/focus.module';
     SystemSettingsModule,
     ClassroomsModule,
     StudentQuestionsModule,
-    FocusModule
+    FocusModule,
+    LiveSessionsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -67,6 +67,8 @@ model User {
   
   // Öğretmen ise yönettiği sınıflar
   classrooms    Classroom[] @relation("TeacherClassrooms")
+  liveSessions  LiveSession[]
+  liveKitConfig LiveKitConfig?
   
   phone         String?   // WhatsApp entegrasyonu için
   deviceTokens  String[]  @default([]) // Push bildirimleri için cihaz tokenları
@@ -196,6 +198,7 @@ model Student {
   
   questions StudentQuestion[]
   focusSessions FocusSession[]
+  liveSessionParticipations LiveSessionParticipant[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -567,4 +570,78 @@ model Classroom {
   updatedAt   DateTime @updatedAt
 
   @@index([teacherId])
+
+  liveSessions LiveSession[]
+}
+
+// --------------------------------------
+// CANLI DERS (LIVEKIT) MODELLERİ
+// --------------------------------------
+
+enum LiveSessionStatus {
+  SCHEDULED   // Planlandı
+  LIVE        // Yayında
+  ENDED       // Bitti
+  CANCELLED   // İptal edildi
+}
+
+model LiveSession {
+  id            String   @id @default(cuid())
+  
+  teacherId     String
+  teacher       User     @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  
+  classroomId   String?
+  classroom     Classroom? @relation(fields: [classroomId], references: [id], onDelete: SetNull)
+  
+  title         String            // Ders konusu
+  roomName      String   @unique  // LiveKit oda adı
+  status        LiveSessionStatus @default(SCHEDULED)
+  
+  maxParticipants Int    @default(10) // Plan bazlı öğrenci sınırı
+  maxDuration     Int    @default(60) // Dakika cinsinden max süre
+  
+  scheduledAt   DateTime?  // Planlanan başlangıç zamanı
+  startedAt     DateTime?  // Gerçek başlangıç zamanı
+  endedAt       DateTime?  // Bitiş zamanı
+  
+  participants  LiveSessionParticipant[]
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([teacherId])
+  @@index([classroomId])
+  @@index([status])
+}
+
+model LiveSessionParticipant {
+  id            String   @id @default(cuid())
+  
+  sessionId     String
+  session       LiveSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  
+  studentId     String
+  student       Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  joinedAt      DateTime @default(now())
+  leftAt        DateTime?  // Ayrılma zamanı
+  duration      Int      @default(0)  // Toplam katılım süresi (saniye)
+  
+  @@unique([sessionId, studentId])
+  @@index([sessionId])
+  @@index([studentId])
+}
+
+model LiveKitConfig {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  apiKey      String   // Şifrelenmiş
+  apiSecret   String   // Şifrelenmiş
+  url         String?  // Opsiyonel, farklı bir sunucu ise (wss://...)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
