@@ -608,6 +608,9 @@ model LiveSession {
   egressId      String?    // LiveKit Egress ID (Kayıt takibi için)
   recordingKey  String?    // S3/R2 üzerindeki dosya yolu
   
+  viewCount     Int      @default(0)  // İzlenme sayısı
+  downloadCount Int      @default(0)  // İndirilme sayısı
+  
   participants  LiveSessionParticipant[]
   
   createdAt     DateTime @default(now())

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, Request } from '@nestjs/common';
 import { LiveSessionsService } from './live-sessions.service';
 import { CreateLiveSessionDto, UpdateLiveKitConfigDto } from './dto/live-session.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -24,6 +24,12 @@ export class LiveSessionsController {
         return this.service.getActiveSession(req.user.userId);
     }
 
+    /** Öğrenciyi at */
+    @Post(':id/kick/:participantId')
+    kickParticipant(@Request() req, @Param('id') id: string, @Param('participantId') participantId: string) {
+        return this.service.kickParticipant(req.user.userId, id, participantId);
+    }
+
     /** Dersi bitir */
     @Patch(':id/end')
     endSession(@Request() req, @Param('id') id: string) {
@@ -42,10 +48,28 @@ export class LiveSessionsController {
         return this.service.getDownloadUrl(req.user.userId, id);
     }
 
+    /** İstatistik arttırma */
+    @Post(':id/stats/:type')
+    trackStat(@Param('id') id: string, @Param('type') type: 'view' | 'download') {
+        return this.service.incrementSessionStat(id, type);
+    }
+
     /** Kota bilgisi */
     @Get('quota')
     getQuota(@Request() req) {
         return this.service.getQuota(req.user.userId);
+    }
+
+    /** Öğretmen: geçmiş dersini sil */
+    @Delete(':id')
+    deleteTeacherSession(@Request() req, @Param('id') id: string) {
+        return this.service.teacherDeleteSession(req.user.userId, id);
+    }
+
+    /** Öğretmen: çoklu ders/kayıt sil */
+    @Post('bulk-delete')
+    deleteTeacherSessions(@Request() req, @Body('ids') ids: string[]) {
+        return this.service.teacherDeleteSessions(req.user.userId, ids);
     }
 
     // ─── ÖĞRENCİ ENDPOINTS ───
@@ -102,5 +126,26 @@ export class LiveSessionsController {
     @Roles('ADMIN')
     resetSettings(@Param('userId') userId: string) {
         return this.service.deleteTeacherSettings(userId);
+    }
+
+    @Get('admin/all-sessions')
+    @UseGuards(RolesGuard)
+    @Roles('ADMIN')
+    getAllSessions() {
+        return this.service.getAdminAllSessions();
+    }
+
+    @Post('admin/sessions/:id/delete')
+    @UseGuards(RolesGuard)
+    @Roles('ADMIN')
+    deleteSession(@Param('id') id: string) {
+        return this.service.deleteSession(id);
+    }
+
+    @Post('admin/sessions/bulk-delete')
+    @UseGuards(RolesGuard)
+    @Roles('ADMIN')
+    deleteSessions(@Body('ids') ids: string[]) {
+        return this.service.deleteSessions(ids);
     }
 }

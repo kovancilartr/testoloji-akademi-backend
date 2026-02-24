@@ -2,9 +2,11 @@ import { Injectable, ForbiddenException, NotFoundException, BadRequestException 
 import { PrismaService } from '../prisma/prisma.service';
 import { ConfigService } from '@nestjs/config';
 import { AccessToken, VideoGrant, EgressClient, EncodedFileOutput, EncodedFileType, RoomServiceClient } from 'livekit-server-sdk';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationType } from '@prisma/client';
 import { CreateLiveSessionDto, UpdateLiveKitConfigDto } from './dto/live-session.dto';
 import { EncryptionUtil } from '../common/utils/encryption.util';
-import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 // Plan bazlı kota limitleri
@@ -21,6 +23,7 @@ export class LiveSessionsService {
     constructor(
         private readonly prisma: PrismaService,
         private readonly config: ConfigService,
+        private readonly notificationsService: NotificationsService,
     ) { }
 
     /**
@@ -102,16 +105,16 @@ export class LiveSessionsService {
             }
         }
 
-        const session = await (this.prisma.liveSession as any).create({
+        const session = await this.prisma.liveSession.create({
             data: {
                 teacherId: userId,
                 classroomId: dto.classroomId || null,
                 title: dto.title,
                 roomName,
                 status: 'LIVE',
+                startedAt: new Date(),
                 maxParticipants: limits.maxParticipants,
                 maxDuration: limits.maxDuration,
-                startedAt: new Date(),
                 egressId,
                 recordingKey
             },
@@ -125,6 +128,13 @@ export class LiveSessionsService {
         // Öğretmen için LiveKit token oluştur
         const tokenToken = await this.generateToken(roomName, user.name || 'Öğretmen', userId, true, userId);
 
+        // --- ÖĞRENCİLERİ BİLGİLENDİR (Feature 1) ---
+        try {
+            this.notifyStudents(userId, session.id, dto.title, dto.classroomId);
+        } catch (error) {
+            console.error('[Notification] Failed to notify students:', error);
+        }
+
         return {
             session,
             token: tokenToken.token,
@@ -135,6 +145,39 @@ export class LiveSessionsService {
                 monthlyRemaining: limits.monthlyClasses - monthlyUsage - 1,
             }
         };
+    }
+
+    /**
+     * Öğrencilere bildirim gönder
+     */
+    private async notifyStudents(teacherId: string, sessionId: string, title: string, classroomId?: string) {
+        // Hedef öğrencileri bul
+        const students = await this.prisma.student.findMany({
+            where: {
+                teacherId,
+                ...(classroomId ? { classroomId } : {}),
+                userId: { not: null }
+            },
+            select: { userId: true, name: true }
+        });
+
+        const teacher = await this.prisma.user.findUnique({
+            where: { id: teacherId },
+            select: { name: true }
+        });
+
+        const notificationData = {
+            title: `Canlı Ders Başladı! 🔴`,
+            message: `${teacher?.name || 'Öğretmeniniz'} "${title}" dersini başlattı. Katılmak için tıklayın!`,
+            type: NotificationType.INFO,
+            link: '/dashboard/student/live-class'
+        };
+
+        for (const student of students) {
+            if (student.userId) {
+                await this.notificationsService.create(student.userId, notificationData);
+            }
+        }
     }
 
     /**
@@ -219,19 +262,95 @@ export class LiveSessionsService {
             await this.stopRecording(userId, (session as any).egressId);
         }
 
+        const now = new Date();
         const updated = await this.prisma.liveSession.update({
             where: { id: sessionId },
             data: {
                 status: 'ENDED',
-                endedAt: new Date(),
+                endedAt: now,
             },
             include: {
                 _count: { select: { participants: true } },
                 classroom: { select: { id: true, name: true } },
+                participants: true
             }
         });
 
+        // Update participant durations
+        if (updated.participants && updated.participants.length > 0) {
+            await Promise.all(updated.participants.map(async (p) => {
+                if (!p.leftAt) {
+                    const joined = new Date(p.joinedAt).getTime();
+                    const durationInSeconds = Math.floor((now.getTime() - joined) / 1000);
+
+                    await this.prisma.liveSessionParticipant.update({
+                        where: { id: p.id },
+                        data: {
+                            leftAt: now,
+                            duration: durationInSeconds
+                        }
+                    });
+                }
+            }));
+        }
+
         return updated;
+    }
+
+    /**
+     * Öğrenciyi dersten at (kick)
+     */
+    async kickParticipant(teacherId: string, sessionId: string, participantId: string) {
+        const session = await this.prisma.liveSession.findUnique({
+            where: { id: sessionId },
+            include: { teacher: { include: { liveKitConfig: true } } }
+        });
+
+        if (!session) throw new NotFoundException('Ders bulunamadı.');
+        if (session.teacherId !== teacherId) throw new ForbiddenException('Bu dersten öğrenci atma yetkiniz yok.');
+
+        const config = session.teacher.liveKitConfig as any;
+        let apiKey = this.config.get('LIVEKIT_API_KEY');
+        let apiSecret = this.config.get('LIVEKIT_API_SECRET');
+        let url = this.config.get('LIVEKIT_URL') || 'wss://your-app.livekit.cloud';
+
+        if (config) {
+            apiKey = EncryptionUtil.decrypt(config.apiKey);
+            apiSecret = EncryptionUtil.decrypt(config.apiSecret);
+            if (config.url) url = config.url;
+        }
+
+        if (!apiKey || !apiSecret) {
+            throw new BadRequestException('LiveKit API anahtarları eksik.');
+        }
+
+        try {
+            const host = url.replace('wss://', 'https://').replace('ws://', 'http://');
+            const roomService = new RoomServiceClient(host, apiKey, apiSecret);
+
+            // Call LiveKit backend to remove the participant
+            await roomService.removeParticipant(session.roomName, participantId);
+
+            // Also update DB status so we know they were kicked/left
+            const studentParticipant = await this.prisma.liveSessionParticipant.findFirst({
+                where: { sessionId, student: { userId: participantId } }
+            });
+            if (studentParticipant && !studentParticipant.leftAt) {
+                const now = new Date();
+                const joined = new Date(studentParticipant.joinedAt).getTime();
+                const durationInSeconds = Math.floor((now.getTime() - joined) / 1000);
+
+                await this.prisma.liveSessionParticipant.update({
+                    where: { id: studentParticipant.id },
+                    data: { leftAt: now, duration: durationInSeconds }
+                });
+            }
+
+            return { success: true };
+        } catch (error: any) {
+            console.error('[LiveKit] Kick participant failed:', error.message || error);
+            throw new BadRequestException('Öğrenci dersten atılamadı. Kullanıcı bulunamıyor olabilir.');
+        }
     }
 
     /**
@@ -457,10 +576,26 @@ export class LiveSessionsService {
             include: {
                 classroom: { select: { id: true, name: true } },
                 _count: { select: { participants: true } },
+                participants: {
+                    include: { student: { select: { name: true } } }
+                }
             }
         });
 
         return sessions;
+    }
+
+    /**
+     * İstatistik arttırma (view / download)
+     */
+    async incrementSessionStat(sessionId: string, type: 'view' | 'download') {
+        const field = type === 'view' ? 'viewCount' : 'downloadCount';
+        return this.prisma.liveSession.update({
+            where: { id: sessionId },
+            data: {
+                [field]: { increment: 1 }
+            }
+        });
     }
 
     /**
@@ -628,6 +763,141 @@ export class LiveSessionsService {
         }).catch(() => ({ success: false }));
     }
 
+    // ─── ADMIN DASHBOARD (Feature 4) ───
+
+    async getAdminAllSessions() {
+        return this.prisma.liveSession.findMany({
+            orderBy: { createdAt: 'desc' },
+            include: {
+                teacher: { select: { id: true, name: true, email: true } },
+                classroom: { select: { id: true, name: true } },
+                _count: { select: { participants: true } }
+            }
+        });
+    }
+
+    async deleteSession(sessionId: string) {
+        const session = await this.prisma.liveSession.findUnique({
+            where: { id: sessionId },
+            include: {
+                teacher: {
+                    include: { liveKitConfig: true }
+                }
+            }
+        });
+
+        if (!session) throw new NotFoundException('Ders bulunamadı.');
+
+        // Eğer bir kayıt varsa S3/R2'den de sil
+        const recordingKey = (session as any).recordingKey;
+        if (recordingKey) {
+            const config = session.teacher.liveKitConfig as any;
+            if (config && config.s3Endpoint && config.s3AccessKey && config.s3SecretKey && config.s3Bucket) {
+                try {
+                    const s3Client = new S3Client({
+                        region: 'auto',
+                        endpoint: config.s3Endpoint,
+                        credentials: {
+                            accessKeyId: EncryptionUtil.decrypt(config.s3AccessKey),
+                            secretAccessKey: EncryptionUtil.decrypt(config.s3SecretKey),
+                        },
+                    });
+
+                    await s3Client.send(new DeleteObjectCommand({
+                        Bucket: config.s3Bucket,
+                        Key: recordingKey,
+                    }));
+                    console.log(`[S3] Deleted recording: ${recordingKey}`);
+                } catch (error) {
+                    console.error('[S3] Deletion failed:', error);
+                    // S3 silme hatası dersin DB'den silinmesini engellemesin
+                }
+            }
+        }
+
+        return this.prisma.liveSession.delete({
+            where: { id: sessionId }
+        });
+    }
+
+    async deleteSessions(sessionIds: string[]) {
+        const sessions = await this.prisma.liveSession.findMany({
+            where: { id: { in: sessionIds } },
+            include: {
+                teacher: {
+                    include: { liveKitConfig: true }
+                }
+            }
+        });
+
+        if (sessions.length === 0) return { success: true, deletedCount: 0 };
+
+        // Toplu S3 silme işlemleri
+        for (const session of sessions) {
+            const recordingKey = (session as any).recordingKey;
+            if (recordingKey) {
+                const config = session.teacher.liveKitConfig as any;
+                if (config && config.s3Endpoint && config.s3AccessKey && config.s3SecretKey && config.s3Bucket) {
+                    try {
+                        const s3Client = new S3Client({
+                            region: 'auto',
+                            endpoint: config.s3Endpoint,
+                            credentials: {
+                                accessKeyId: EncryptionUtil.decrypt(config.s3AccessKey),
+                                secretAccessKey: EncryptionUtil.decrypt(config.s3SecretKey),
+                            },
+                        });
+
+                        await s3Client.send(new DeleteObjectCommand({
+                            Bucket: config.s3Bucket,
+                            Key: recordingKey,
+                        }));
+                    } catch (error) {
+                        console.error(`[S3-Bulk] Deletion failed for ${recordingKey}:`, error);
+                    }
+                }
+            }
+        }
+
+        const result = await this.prisma.liveSession.deleteMany({
+            where: { id: { in: sessionIds } }
+        });
+
+        return { success: true, deletedCount: result.count };
+    }
+
+    // ─── TEACHER DELETE METHODS ───
+
+    async teacherDeleteSession(teacherId: string, sessionId: string) {
+        // Doğrulama: Bu oturum gerçekten bu öğretmene mi ait?
+        const session = await this.prisma.liveSession.findFirst({
+            where: { id: sessionId, teacherId }
+        });
+
+        if (!session) {
+            throw new NotFoundException('Ders bulunamadı veya yetkiniz yok.');
+        }
+
+        // admin deleteSession fonksiyonunu kullanarak kaydı sil
+        return this.deleteSession(sessionId);
+    }
+
+    async teacherDeleteSessions(teacherId: string, sessionIds: string[]) {
+        // Doğrulama: Seçilen tüm oturumlar bu öğretmene mi ait?
+        const sessions = await this.prisma.liveSession.findMany({
+            where: { id: { in: sessionIds }, teacherId }
+        });
+
+        const validSessionIds = sessions.map(s => s.id);
+
+        if (validSessionIds.length === 0) {
+            return { success: true, deletedCount: 0 };
+        }
+
+        // admin deleteSessions fonksiyonunu kullanarak geçerli kayıtları sil
+        return this.deleteSessions(validSessionIds);
+    }
+
     /**
      * LiveKit JWT token üretir
      */
@@ -666,6 +936,11 @@ export class LiveSessionsService {
             canSubscribe: true,
             canPublishData: true,
         };
+
+        // Eğer öğretmen ise
+        if (isTeacher) {
+            grant.roomAdmin = true;
+        }
 
         // Öğrenciler için yayın yetkisi kısıtlanabilir (opsiyonel)
         if (!isTeacher) {
