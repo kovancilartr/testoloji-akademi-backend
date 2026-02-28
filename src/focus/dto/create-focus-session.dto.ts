@@ -1,9 +1,9 @@
 import { IsString, IsNumber } from 'class-validator';
 
 export class CreateFocusSessionDto {
-    @IsString()
-    subject: string;
+  @IsString()
+  subject: string;
 
-    @IsNumber()
-    duration: number;
+  @IsNumber()
+  duration: number;
 }

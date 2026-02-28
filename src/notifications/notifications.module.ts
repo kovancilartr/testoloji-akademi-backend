@@ -6,9 +6,9 @@ import { NotificationsGateway } from './notifications.gateway';
 
 @Global()
 @Module({
-    imports: [ConfigModule],
-    controllers: [NotificationsController],
-    providers: [NotificationsService, NotificationsGateway],
-    exports: [NotificationsService, NotificationsGateway],
+  imports: [ConfigModule],
+  controllers: [NotificationsController],
+  providers: [NotificationsService, NotificationsGateway],
+  exports: [NotificationsService, NotificationsGateway],
 })
-export class NotificationsModule { }
+export class NotificationsModule {}

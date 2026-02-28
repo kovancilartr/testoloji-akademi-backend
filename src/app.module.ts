@@ -74,4 +74,4 @@ import { LiveSessionsModule } from './live-sessions/live-sessions.module';
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule { }
+export class AppModule {}

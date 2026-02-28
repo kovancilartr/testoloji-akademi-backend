@@ -3,8 +3,8 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
-import { createRouteHandler } from "uploadthing/express";
-import { uploadRouter } from "./common/config/upload-router";
+import { createRouteHandler } from 'uploadthing/express';
+import { uploadRouter } from './common/config/upload-router';
 
 import { json, urlencoded } from 'express';
 
@@ -25,7 +25,7 @@ async function bootstrap() {
 
   // UploadThing
   app.use(
-    "/api/uploadthing",
+    '/api/uploadthing',
     createRouteHandler({
       router: uploadRouter,
     }),

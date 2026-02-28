@@ -4,9 +4,9 @@ import { FocusController } from './focus.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({
-    imports: [PrismaModule],
-    controllers: [FocusController],
-    providers: [FocusService],
-    exports: [FocusService]
+  imports: [PrismaModule],
+  controllers: [FocusController],
+  providers: [FocusService],
+  exports: [FocusService],
 })
-export class FocusModule { }
+export class FocusModule {}

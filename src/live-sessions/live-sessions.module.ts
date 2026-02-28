@@ -4,9 +4,9 @@ import { LiveSessionsController } from './live-sessions.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 
 @Module({
-    imports: [PrismaModule],
-    controllers: [LiveSessionsController],
-    providers: [LiveSessionsService],
-    exports: [LiveSessionsService],
+  imports: [PrismaModule],
+  controllers: [LiveSessionsController],
+  providers: [LiveSessionsService],
+  exports: [LiveSessionsService],
 })
-export class LiveSessionsModule { }
+export class LiveSessionsModule {}

@@ -9,27 +9,27 @@ import { GetUser } from '../common/decorators/get-user.decorator';
 @Controller('analytics')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class AnalyticsController {
-    constructor(private readonly analyticsService: AnalyticsService) { }
+  constructor(private readonly analyticsService: AnalyticsService) {}
 
-    @Get('student/:id/overview')
-    @Roles(Role.STUDENT, Role.TEACHER, Role.ADMIN)
-    async getStudentOverview(
-        @Param('id') studentId: string,
-        @GetUser('userId') userId: string,
-        @GetUser('role') role: Role,
-    ) {
-        return this.analyticsService.getStudentOverview(userId, role, studentId);
-    }
+  @Get('student/:id/overview')
+  @Roles(Role.STUDENT, Role.TEACHER, Role.ADMIN)
+  async getStudentOverview(
+    @Param('id') studentId: string,
+    @GetUser('userId') userId: string,
+    @GetUser('role') role: Role,
+  ) {
+    return this.analyticsService.getStudentOverview(userId, role, studentId);
+  }
 
-    @Get('teacher/overview')
-    @Roles(Role.TEACHER, Role.ADMIN)
-    async getTeacherOverview(@GetUser('userId') userId: string) {
-        return this.analyticsService.getTeacherOverview(userId);
-    }
+  @Get('teacher/overview')
+  @Roles(Role.TEACHER, Role.ADMIN)
+  async getTeacherOverview(@GetUser('userId') userId: string) {
+    return this.analyticsService.getTeacherOverview(userId);
+  }
 
-    @Get('my-overview')
-    @Roles(Role.STUDENT)
-    async getMyOverview(@GetUser('userId') userId: string) {
-        return this.analyticsService.getStudentOverviewByUserId(userId);
-    }
+  @Get('my-overview')
+  @Roles(Role.STUDENT)
+  async getMyOverview(@GetUser('userId') userId: string) {
+    return this.analyticsService.getStudentOverviewByUserId(userId);
+  }
 }

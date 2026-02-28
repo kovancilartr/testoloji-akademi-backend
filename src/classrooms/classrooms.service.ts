@@ -5,145 +5,149 @@ import { UpdateClassroomDto } from './dto/update-classroom.dto';
 
 @Injectable()
 export class ClassroomsService {
-    constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
-    async create(teacherId: string, dto: CreateClassroomDto) {
-        const { studentIds, ...classroomData } = dto;
+  async create(teacherId: string, dto: CreateClassroomDto) {
+    const { studentIds, ...classroomData } = dto;
 
-        return this.prisma.classroom.create({
-            data: {
-                ...classroomData,
-                teacherId,
-                students: studentIds ? {
-                    connect: studentIds.map(id => ({ id }))
-                } : undefined
-            },
-            include: {
-                students: true,
-                _count: {
-                    select: { students: true }
-                }
+    return this.prisma.classroom.create({
+      data: {
+        ...classroomData,
+        teacherId,
+        students: studentIds
+          ? {
+              connect: studentIds.map((id) => ({ id })),
             }
-        });
-    }
+          : undefined,
+      },
+      include: {
+        students: true,
+        _count: {
+          select: { students: true },
+        },
+      },
+    });
+  }
 
-    async findAll(teacherId: string) {
-        return this.prisma.classroom.findMany({
-            where: { teacherId },
-            include: {
-                _count: {
-                    select: { students: true }
-                }
+  async findAll(teacherId: string) {
+    return this.prisma.classroom.findMany({
+      where: { teacherId },
+      include: {
+        _count: {
+          select: { students: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async findOne(teacherId: string, id: string) {
+    const classroom = await this.prisma.classroom.findFirst({
+      where: { id, teacherId },
+      include: {
+        students: {
+          include: {
+            user: {
+              select: {
+                name: true,
+                email: true,
+              },
             },
-            orderBy: { createdAt: 'desc' }
-        });
+          },
+        },
+      },
+    });
+
+    if (!classroom) {
+      throw new NotFoundException('Sınıf bulunamadı.');
     }
 
-    async findOne(teacherId: string, id: string) {
-        const classroom = await this.prisma.classroom.findFirst({
-            where: { id, teacherId },
-            include: {
-                students: {
-                    include: {
-                        user: {
-                            select: {
-                                name: true,
-                                email: true
-                            }
-                        }
-                    }
-                }
+    return classroom;
+  }
+
+  async update(teacherId: string, id: string, dto: UpdateClassroomDto) {
+    const { studentIds, ...classroomData } = dto;
+
+    // Verify ownership
+    const existing = await this.prisma.classroom.findFirst({
+      where: { id, teacherId },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Sınıf bulunamadı.');
+    }
+
+    return this.prisma.classroom.update({
+      where: { id },
+      data: {
+        ...classroomData,
+        students: studentIds
+          ? {
+              set: studentIds.map((id) => ({ id })),
             }
-        });
+          : undefined,
+      },
+      include: {
+        students: true,
+      },
+    });
+  }
 
-        if (!classroom) {
-            throw new NotFoundException('Sınıf bulunamadı.');
-        }
+  async remove(teacherId: string, id: string) {
+    const existing = await this.prisma.classroom.findFirst({
+      where: { id, teacherId },
+    });
 
-        return classroom;
+    if (!existing) {
+      throw new NotFoundException('Sınıf bulunamadı.');
     }
 
-    async update(teacherId: string, id: string, dto: UpdateClassroomDto) {
-        const { studentIds, ...classroomData } = dto;
+    return this.prisma.classroom.delete({
+      where: { id },
+    });
+  }
 
-        // Verify ownership
-        const existing = await this.prisma.classroom.findFirst({
-            where: { id, teacherId }
-        });
+  async addStudents(teacherId: string, id: string, studentIds: string[]) {
+    const existing = await this.prisma.classroom.findFirst({
+      where: { id, teacherId },
+    });
 
-        if (!existing) {
-            throw new NotFoundException('Sınıf bulunamadı.');
-        }
-
-        return this.prisma.classroom.update({
-            where: { id },
-            data: {
-                ...classroomData,
-                students: studentIds ? {
-                    set: studentIds.map(id => ({ id }))
-                } : undefined
-            },
-            include: {
-                students: true
-            }
-        });
+    if (!existing) {
+      throw new NotFoundException('Sınıf bulunamadı.');
     }
 
-    async remove(teacherId: string, id: string) {
-        const existing = await this.prisma.classroom.findFirst({
-            where: { id, teacherId }
-        });
+    return this.prisma.classroom.update({
+      where: { id },
+      data: {
+        students: {
+          connect: studentIds.map((id) => ({ id })),
+        },
+      },
+      include: {
+        students: true,
+      },
+    });
+  }
 
-        if (!existing) {
-            throw new NotFoundException('Sınıf bulunamadı.');
-        }
+  async removeStudents(teacherId: string, id: string, studentIds: string[]) {
+    const existing = await this.prisma.classroom.findFirst({
+      where: { id, teacherId },
+    });
 
-        return this.prisma.classroom.delete({
-            where: { id }
-        });
+    if (!existing) {
+      throw new NotFoundException('Sınıf bulunamadı.');
     }
 
-    async addStudents(teacherId: string, id: string, studentIds: string[]) {
-        const existing = await this.prisma.classroom.findFirst({
-            where: { id, teacherId }
-        });
-
-        if (!existing) {
-            throw new NotFoundException('Sınıf bulunamadı.');
-        }
-
-        return this.prisma.classroom.update({
-            where: { id },
-            data: {
-                students: {
-                    connect: studentIds.map(id => ({ id }))
-                }
-            },
-            include: {
-                students: true
-            }
-        });
-    }
-
-    async removeStudents(teacherId: string, id: string, studentIds: string[]) {
-        const existing = await this.prisma.classroom.findFirst({
-            where: { id, teacherId }
-        });
-
-        if (!existing) {
-            throw new NotFoundException('Sınıf bulunamadı.');
-        }
-
-        return this.prisma.classroom.update({
-            where: { id },
-            data: {
-                students: {
-                    disconnect: studentIds.map(id => ({ id }))
-                }
-            },
-            include: {
-                students: true
-            }
-        });
-    }
+    return this.prisma.classroom.update({
+      where: { id },
+      data: {
+        students: {
+          disconnect: studentIds.map((id) => ({ id })),
+        },
+      },
+      include: {
+        students: true,
+      },
+    });
+  }
 }

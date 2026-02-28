@@ -1,36 +1,43 @@
-import { IsEmail, IsNotEmpty, IsOptional, IsString, IsInt, Min } from 'class-validator';
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsInt,
+  Min,
+} from 'class-validator';
 
 export class CreateStudentDto {
-    @IsString()
-    @IsNotEmpty({ message: 'İsim alanı boş bırakılamaz.' })
-    name: string;
+  @IsString()
+  @IsNotEmpty({ message: 'İsim alanı boş bırakılamaz.' })
+  name: string;
 
-    @IsEmail({}, { message: 'Geçersiz e-posta adresi.' })
-    @IsOptional()
-    email?: string;
+  @IsEmail({}, { message: 'Geçersiz e-posta adresi.' })
+  @IsOptional()
+  email?: string;
 
-    @IsString()
-    @IsOptional()
-    gradeLevel?: string;
+  @IsString()
+  @IsOptional()
+  gradeLevel?: string;
 
-    @IsString()
-    @IsOptional()
-    phone?: string;
+  @IsString()
+  @IsOptional()
+  phone?: string;
 
-    @IsString()
-    @IsOptional()
-    parentPhone?: string;
+  @IsString()
+  @IsOptional()
+  parentPhone?: string;
 
-    @IsString()
-    @IsOptional()
-    notes?: string;
+  @IsString()
+  @IsOptional()
+  notes?: string;
 
-    @IsInt()
-    @IsOptional()
-    @Min(0)
-    dailyQuestionLimit?: number;
+  @IsInt()
+  @IsOptional()
+  @Min(0)
+  dailyQuestionLimit?: number;
 
-    @IsString()
-    @IsOptional()
-    classroomId?: string;
+  @IsString()
+  @IsOptional()
+  classroomId?: string;
 }

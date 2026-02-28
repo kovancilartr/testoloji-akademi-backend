@@ -10,18 +10,18 @@ import { SystemSettingsModule } from '../system-settings/system-settings.module'
 import { SchedulesModule } from '../schedules/schedules.module';
 
 @Module({
-    imports: [
-        PrismaModule,
-        ConfigModule,
-        AnalyticsModule,
-        SystemSettingsModule,
-        SchedulesModule,
-        BullModule.registerQueue({
-            name: 'ai-coaching',
-        }),
-    ],
-    controllers: [CoachingController],
-    providers: [CoachingService, CoachingProcessor],
-    exports: [CoachingService],
+  imports: [
+    PrismaModule,
+    ConfigModule,
+    AnalyticsModule,
+    SystemSettingsModule,
+    SchedulesModule,
+    BullModule.registerQueue({
+      name: 'ai-coaching',
+    }),
+  ],
+  controllers: [CoachingController],
+  providers: [CoachingService, CoachingProcessor],
+  exports: [CoachingService],
 })
-export class CoachingModule { }
+export class CoachingModule {}

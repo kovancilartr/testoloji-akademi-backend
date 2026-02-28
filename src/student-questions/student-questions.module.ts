@@ -6,9 +6,9 @@ import { StudentQuestionsController } from './student-questions.controller';
 import { StudentQuestionsService } from './student-questions.service';
 
 @Module({
-    imports: [PrismaModule, ToolsModule],
-    controllers: [StudentQuestionsController],
-    providers: [StudentQuestionsService],
-    exports: [StudentQuestionsService]
+  imports: [PrismaModule, ToolsModule],
+  controllers: [StudentQuestionsController],
+  providers: [StudentQuestionsService],
+  exports: [StudentQuestionsService],
 })
-export class StudentQuestionsModule { }
+export class StudentQuestionsModule {}

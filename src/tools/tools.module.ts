@@ -8,6 +8,6 @@ import { UploadThingService } from './uploadthing.service';
 @Module({
   controllers: [ToolsController],
   providers: [ToolsService, WhatsAppService, UploadThingService],
-  exports: [WhatsAppService, UploadThingService]
+  exports: [WhatsAppService, UploadThingService],
 })
-export class ToolsModule { }
+export class ToolsModule {}
