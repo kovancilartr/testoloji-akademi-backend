@@ -8,6 +8,7 @@ import { CreateAssignmentsDto } from './dto/create-assignments.dto';
 import { UpdateAssignmentDto } from './dto/update-assignment.dto';
 import { Role, NotificationType } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
+import { utapi } from '../common/config/uploadthing';
 
 @Injectable()
 export class AssignmentsService {
@@ -162,6 +163,20 @@ export class AssignmentsService {
       }
     }
 
+    // PDF silme işlemi (UploadThing)
+    if (existing.externalUrl) {
+      try {
+        const urlObj = new URL(existing.externalUrl);
+        const fileKey = urlObj.pathname.split('/').pop();
+        if (fileKey) {
+          await utapi.deleteFiles(fileKey);
+          console.log(`PDF deleted from UploadThing: ${fileKey}`);
+        }
+      } catch (err) {
+        console.error('UploadThing dosya silme hatası:', err);
+      }
+    }
+
     return await this.prisma.assignment.delete({
       where: { id: assignmentId },
     });
@@ -309,18 +324,15 @@ export class AssignmentsService {
     const student = await this.prisma.student.findFirst({ where: { userId } });
     if (!student) throw new NotFoundException('Öğrenci bulunamadı.');
 
-    // Unutma Eğrisi (Spaced Repetition) mantığı:
-    // En az 1 yanlışı olan ve daha önce çözülmüş testleri getirir.
-    // incorrectCount null kontrolü: eski kayıtlar null olabilir, null > 0 false döner
-    // Bu yüzden OR ile null olanları da dahil et (answers üzerinden hesaplanır)
     return await this.prisma.assignment.findMany({
       where: {
         studentId: student.id,
         type: 'TEST',
         status: 'COMPLETED',
+        isArchivedFromPool: false, // Arşivlenenler gösterilmez
         OR: [
           { incorrectCount: { gt: 0 } },
-          { incorrectCount: null }, // Eski kayıtlar: null ise answers'dan hesaplanacak
+          { incorrectCount: null },
         ],
         NOT: [
           { title: { contains: 'Tekrar Testi' } },
@@ -330,10 +342,44 @@ export class AssignmentsService {
       include: {
         project: { select: { id: true, name: true } },
       },
-      orderBy: { completedAt: 'desc' }, // En yeni hatalar önce gelsin
-      take: 10, // 3'ten 10'a çıkarıldı
+      orderBy: { completedAt: 'desc' },
+      take: 10,
     });
   }
+
+  async archiveMakeUpAssignment(userId: string, assignmentId: string) {
+    const student = await this.prisma.student.findFirst({ where: { userId } });
+    if (!student) throw new NotFoundException('Öğrenci bulunamadı.');
+
+    const assignment = await this.prisma.assignment.findFirst({
+      where: { id: assignmentId, studentId: student.id },
+    });
+    if (!assignment) throw new NotFoundException('Ödev bulunamadı.');
+
+    return await this.prisma.assignment.update({
+      where: { id: assignmentId },
+      data: { isArchivedFromPool: !assignment.isArchivedFromPool },
+    });
+  }
+
+  async getArchivedPool(userId: string) {
+    const student = await this.prisma.student.findFirst({ where: { userId } });
+    if (!student) throw new NotFoundException('Öğrenci bulunamadı.');
+
+    return await this.prisma.assignment.findMany({
+      where: {
+        studentId: student.id,
+        type: 'TEST',
+        status: 'COMPLETED',
+        isArchivedFromPool: true,
+      },
+      include: {
+        project: { select: { id: true, name: true } },
+      },
+      orderBy: { completedAt: 'desc' },
+    });
+  }
+
 
   async createMakeUpAssignment(userId: string, originalAssignmentId: string) {
     const student = await this.prisma.student.findFirst({ where: { userId } });

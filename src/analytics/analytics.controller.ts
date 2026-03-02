@@ -9,7 +9,7 @@ import { GetUser } from '../common/decorators/get-user.decorator';
 @Controller('analytics')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class AnalyticsController {
-  constructor(private readonly analyticsService: AnalyticsService) {}
+  constructor(private readonly analyticsService: AnalyticsService) { }
 
   @Get('student/:id/overview')
   @Roles(Role.STUDENT, Role.TEACHER, Role.ADMIN)
@@ -19,6 +19,16 @@ export class AnalyticsController {
     @GetUser('role') role: Role,
   ) {
     return this.analyticsService.getStudentOverview(userId, role, studentId);
+  }
+
+  @Get('student/:id/mistakes')
+  @Roles(Role.TEACHER, Role.ADMIN)
+  async getStudentMistakes(
+    @Param('id') studentId: string,
+    @GetUser('userId') userId: string,
+    @GetUser('role') role: Role,
+  ) {
+    return this.analyticsService.getStudentMistakes(userId, role, studentId);
   }
 
   @Get('teacher/overview')

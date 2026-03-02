@@ -8,7 +8,7 @@ import { Role } from '@prisma/client';
 
 @Injectable()
 export class AnalyticsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async getStudentOverview(reqUserId: string, role: Role, studentId: string) {
     // Find the student
@@ -95,8 +95,8 @@ export class AnalyticsService {
     const avgScore =
       exams.length > 0
         ? Math.round(
-            exams.reduce((acc, ex) => acc + (ex.grade || 0), 0) / exams.length,
-          )
+          exams.reduce((acc, ex) => acc + (ex.grade || 0), 0) / exams.length,
+        )
         : 0;
 
     const scoreHistory = exams
@@ -284,8 +284,70 @@ export class AnalyticsService {
       studentData,
       averageClassGrade: Math.round(
         studentData.reduce((acc, s) => acc + s.avgGrade, 0) /
-          (studentData.length || 1),
+        (studentData.length || 1),
       ),
     };
+  }
+
+  async getStudentMistakes(reqUserId: string, role: Role, studentId: string) {
+    const student = await this.prisma.student.findUnique({
+      where: { id: studentId },
+      include: {
+        assignments: {
+          where: { type: 'TEST', status: 'COMPLETED' },
+          include: {
+            project: {
+              select: {
+                id: true,
+                name: true,
+                questions: {
+                  select: {
+                    id: true,
+                    imageUrl: true,
+                    correctAnswer: true,
+                    order: true,
+                    difficulty: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!student) throw new NotFoundException('Öğrenci bulunamadı.');
+
+    if (role === Role.TEACHER && student.teacherId !== reqUserId) {
+      throw new ForbiddenException('Bu öğrenci size bağlı değil.');
+    }
+
+    const mistakes: any[] = [];
+    const seenQuestionIds = new Set();
+
+    student.assignments.forEach((assignment) => {
+      const answers = (assignment.answers as Record<string, string>) || {};
+      const questions = assignment.project?.questions || [];
+
+      questions.forEach((q) => {
+        const studentAnswer = answers[q.id];
+        // Yanlış veya Boş soruları al
+        if (!studentAnswer || studentAnswer !== q.correctAnswer) {
+          if (!seenQuestionIds.has(q.id)) {
+            mistakes.push({
+              ...q,
+              projectName: assignment.project?.name || 'Bilinmeyen Test',
+              projectId: assignment.project?.id,
+              assignmentTitle: assignment.title,
+              assignmentDate: assignment.completedAt,
+              studentAnswer: studentAnswer || null,
+            });
+            seenQuestionIds.add(q.id);
+          }
+        }
+      });
+    });
+
+    return mistakes;
   }
 }

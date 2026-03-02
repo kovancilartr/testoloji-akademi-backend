@@ -23,6 +23,7 @@ import { ClassroomsModule } from './classrooms/classrooms.module';
 import { StudentQuestionsModule } from './student-questions/student-questions.module';
 import { FocusModule } from './focus/focus.module';
 import { LiveSessionsModule } from './live-sessions/live-sessions.module';
+import { FoldersModule } from './folders/folders.module';
 
 @Module({
   imports: [
@@ -70,8 +71,9 @@ import { LiveSessionsModule } from './live-sessions/live-sessions.module';
     StudentQuestionsModule,
     FocusModule,
     LiveSessionsModule,
+    FoldersModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }

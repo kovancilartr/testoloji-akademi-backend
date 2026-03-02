@@ -9,13 +9,14 @@ import { getProjectLimit } from '../common/config/limits';
 
 @Injectable()
 export class ProjectsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async create(
     userId: string,
     name: string,
     userRole: Role,
     userTier: SubscriptionTier,
+    folderId?: string | null,
   ) {
     const currentCount = await this.prisma.project.count({
       where: { userId },
@@ -32,6 +33,7 @@ export class ProjectsService {
       data: {
         name,
         userId,
+        ...(folderId ? { folderId } : {}),
       },
     });
   }
@@ -66,7 +68,7 @@ export class ProjectsService {
     return project;
   }
 
-  async update(userId: string, projectId: string, name: string) {
+  async update(userId: string, projectId: string, name: string, folderId?: string | null) {
     const project = await this.prisma.project.findFirst({
       where: { id: projectId, userId },
     });
@@ -77,7 +79,10 @@ export class ProjectsService {
 
     return await this.prisma.project.update({
       where: { id: projectId },
-      data: { name },
+      data: {
+        name,
+        ...(folderId !== undefined ? { folderId } : {}),
+      },
     });
   }
 
@@ -92,6 +97,80 @@ export class ProjectsService {
 
     return await this.prisma.project.delete({
       where: { id: projectId },
+    });
+  }
+
+  async duplicate(userId: string, projectId: string, userRole: Role, userTier: SubscriptionTier) {
+    const original = await this.prisma.project.findFirst({
+      where: { id: projectId, userId },
+      include: {
+        settings: true,
+        questions: {
+          orderBy: { order: 'asc' },
+        },
+      },
+    });
+
+    if (!original) {
+      throw new NotFoundException('Proje bulunamadı.');
+    }
+
+    // Limit kontrolü
+    const currentCount = await this.prisma.project.count({
+      where: { userId },
+    });
+    const limit = getProjectLimit(userRole, userTier);
+    if (currentCount >= limit) {
+      throw new ForbiddenException(`Paket limitine ulaşıldı. Lütfen paketinizi yükseltin.`);
+    }
+
+    // Yeni projeyi oluştur - İşlem süresini uzatalım (30 saniye)
+    return await this.prisma.$transaction(async (tx) => {
+      // 1. Ana projeyi oluştur
+      const duplicated = await tx.project.create({
+        data: {
+          name: `${original.name} (Kopya)`,
+          userId: original.userId,
+          folderId: original.folderId,
+        },
+      });
+
+      // 2. Ayarları kopyala
+      if (original.settings) {
+        // ID ve projectId hariç diğer alanları kopyala
+        const { id, projectId: oldPid, createdAt, updatedAt, ...settingsData } = original.settings;
+        await tx.settings.create({
+          data: {
+            ...settingsData,
+            projectId: duplicated.id,
+          },
+        });
+      }
+
+      // 3. Soruları kopyala
+      if (original.questions && original.questions.length > 0) {
+        const questionsData = original.questions.map(q => {
+          const { id, projectId: oldPid, createdAt, ...qData } = q;
+          return {
+            ...qData,
+            projectId: duplicated.id,
+          };
+        });
+
+        await tx.question.createMany({
+          data: questionsData,
+        });
+      }
+
+      // Son hali getir (count ile)
+      return await tx.project.findUnique({
+        where: { id: duplicated.id },
+        include: {
+          _count: { select: { questions: true } }
+        }
+      });
+    }, {
+      timeout: 30000, // 30 saniye
     });
   }
 }
