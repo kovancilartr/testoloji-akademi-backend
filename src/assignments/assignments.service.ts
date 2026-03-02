@@ -211,6 +211,11 @@ export class AssignmentsService {
 
     if (!assignment) throw new NotFoundException('Ödev bulunamadı.');
 
+    // Bilgi Notlarını öğrenciden ve sınav raporundan temizle
+    if (assignment.project && assignment.project.questions) {
+      assignment.project.questions = assignment.project.questions.filter(q => !q.isInformation);
+    }
+
     // Security: Hide correct answers if student hasn't completed it
     const isCompleted = assignment.status === 'COMPLETED';
     const isTeacher = role !== Role.STUDENT;
@@ -251,13 +256,14 @@ export class AssignmentsService {
 
     const isTest = assignment.type === 'TEST';
     const totalQuestions = isTest
-      ? assignment.project?.questions.length || 0
+      ? assignment.project?.questions.filter(q => !q.isInformation).length || 0
       : 0;
     let correctCount = 0;
     let incorrectCount = 0;
 
     if (isTest && totalQuestions > 0) {
       assignment.project?.questions.forEach((q) => {
+        if (q.isInformation) return; // Bilgi notlarını hesaplama dışı bırak
         const answer = answers[q.id];
         if (answer) {
           if (q.correctAnswer && answer === q.correctAnswer) {
