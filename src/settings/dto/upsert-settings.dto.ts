@@ -41,6 +41,10 @@ export class UpsertSettingsDto {
 
   @IsString()
   @IsOptional()
+  displayMode?: string;
+
+  @IsString()
+  @IsOptional()
   primaryColor?: string;
 
   @IsString()

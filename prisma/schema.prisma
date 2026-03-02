@@ -134,10 +134,12 @@ model Question {
   order     Int
   width     Float
   height    Float
-  bottomSpacing Int @default(20)
+  bottomSpacing Int @default(0)
   
   difficulty    Int?
   correctAnswer String?
+  isInformation Boolean  @default(false)
+  infoType      String?  // info, warning, danger, success, formula
 
   createdAt DateTime @default(now())
 }
@@ -155,6 +157,7 @@ model Settings {
   questionSpacing Int     @default(10)
   watermarkText  String?
   showDebug      Boolean @default(false)
+  displayMode    String  @default("normal")
   primaryColor   String  @default("#f97316")
   fontFamily     String  @default("Roboto")
   
