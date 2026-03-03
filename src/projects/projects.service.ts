@@ -2,9 +2,10 @@ import {
   Injectable,
   ForbiddenException,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Role, SubscriptionTier } from '@prisma/client';
+import { Role, SubscriptionTier, ProjectCategory } from '@prisma/client';
 import { getProjectLimit } from '../common/config/limits';
 
 @Injectable()
@@ -17,6 +18,7 @@ export class ProjectsService {
     userRole: Role,
     userTier: SubscriptionTier,
     folderId?: string | null,
+    category?: ProjectCategory,
   ) {
     const currentCount = await this.prisma.project.count({
       where: { userId },
@@ -34,6 +36,7 @@ export class ProjectsService {
         name,
         userId,
         ...(folderId ? { folderId } : {}),
+        category: category || 'SB',
       },
     });
   }
@@ -68,7 +71,7 @@ export class ProjectsService {
     return project;
   }
 
-  async update(userId: string, projectId: string, name: string, folderId?: string | null) {
+  async update(userId: string, projectId: string, name: string, folderId?: string | null, category?: ProjectCategory) {
     const project = await this.prisma.project.findFirst({
       where: { id: projectId, userId },
     });
@@ -82,6 +85,7 @@ export class ProjectsService {
       data: {
         name,
         ...(folderId !== undefined ? { folderId } : {}),
+        category: category || project.category,
       },
     });
   }
@@ -132,6 +136,7 @@ export class ProjectsService {
           name: `${original.name} (Kopya)`,
           userId: original.userId,
           folderId: original.folderId,
+          category: original.category,
         },
       });
 
@@ -172,5 +177,45 @@ export class ProjectsService {
     }, {
       timeout: 30000, // 30 saniye
     });
+  }
+
+  async getStudentProject(projectId: string, userId: string) {
+    const student = await this.prisma.student.findFirst({ where: { userId } });
+    if (!student) throw new UnauthorizedException('Öğrenci profili bulunamadı.');
+
+    // Check if enrolled in any course that has this project OR assigned as an assignment
+    const enrollment = await this.prisma.courseEnrollment.findFirst({
+      where: {
+        studentId: student.id,
+        course: {
+          modules: {
+            some: {
+              contents: {
+                some: { projectId },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const assignment = await this.prisma.assignment.findFirst({
+      where: { studentId: student.id, projectId },
+    });
+
+    if (!enrollment && !assignment) {
+      throw new ForbiddenException('Bu içeriğe erişim yetkiniz yok.');
+    }
+
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+      include: {
+        questions: { orderBy: { order: 'asc' } },
+        settings: true,
+      },
+    });
+
+    if (!project) throw new NotFoundException('Proje bulunamadı.');
+    return project;
   }
 }

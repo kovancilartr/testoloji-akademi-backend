@@ -70,8 +70,13 @@ export class CoursesService {
             contents: {
               orderBy: { order: 'asc' },
               include: {
+                attachments: {
+                  include: {
+                    project: { select: { id: true, name: true, category: true } },
+                  },
+                },
                 project: {
-                  select: { id: true, name: true },
+                  select: { id: true, name: true, category: true },
                 },
               },
             },
@@ -97,7 +102,8 @@ export class CoursesService {
   }
 
   async addContent(moduleId: string, dto: AddContentDto) {
-    const data: any = { ...dto };
+    const { attachments, ...rest } = dto;
+    const data: any = { ...rest };
     if (data.projectId === '') {
       data.projectId = null;
     }
@@ -109,6 +115,16 @@ export class CoursesService {
       data: {
         moduleId,
         ...data,
+        attachments: {
+          create: attachments?.map((att) => ({
+            title: att.title,
+            projectId: att.projectId || null,
+            url: att.url || null,
+          })),
+        },
+      },
+      include: {
+        attachments: true,
       },
     });
   }
@@ -193,8 +209,9 @@ export class CoursesService {
     });
   }
 
-  async updateContent(contentId: string, data: any) {
-    const updateData: any = { ...data };
+  async updateContent(contentId: string, dto: AddContentDto) {
+    const { attachments, ...rest } = dto;
+    const updateData: any = { ...rest };
     if (updateData.projectId === '') {
       updateData.projectId = null;
     }
@@ -203,9 +220,31 @@ export class CoursesService {
       updateData.url = null;
     }
 
-    return await this.prisma.courseContent.update({
-      where: { id: contentId },
-      data: updateData,
+    return await this.prisma.$transaction(async (tx) => {
+      // Önce mevcut ekleri temizle (veya senkronize et)
+      // Basitlik için silip yeniden oluşturuyoruz silinenleri. 
+      // Ama burada eğer id'ler olsaydı daha iyi olurdu. 
+      // Mevcut şema bazında hepsini silip yeniden yaratmak en kolayı.
+      await tx.courseAttachment.deleteMany({
+        where: { contentId },
+      });
+
+      return await tx.courseContent.update({
+        where: { id: contentId },
+        data: {
+          ...updateData,
+          attachments: {
+            create: attachments?.map((att) => ({
+              title: att.title,
+              projectId: att.projectId || null,
+              url: att.url || null,
+            })),
+          },
+        },
+        include: {
+          attachments: true,
+        },
+      });
     });
   }
 
@@ -282,7 +321,12 @@ export class CoursesService {
             contents: {
               orderBy: { order: 'asc' },
               include: {
-                project: { select: { id: true, name: true } },
+                project: { select: { id: true, name: true, category: true } },
+                attachments: {
+                  include: {
+                    project: { select: { id: true, name: true, category: true } },
+                  },
+                },
                 progress: {
                   where: { studentId },
                   select: { status: true },

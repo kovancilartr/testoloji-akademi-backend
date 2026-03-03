@@ -39,14 +39,20 @@ export class ProjectsController {
     return this.projectsService.getById(userId, id);
   }
 
+  @Get('student/:id')
+  async getStudentProject(@GetUser('userId') userId: string, @Param('id') id: string) {
+    return this.projectsService.getStudentProject(id, userId);
+  }
+
   @Put(':id')
   async update(
     @GetUser('userId') userId: string,
     @Param('id') id: string,
     @Body('name') name: string,
     @Body('folderId') folderId?: string | null,
+    @Body('category') category?: any,
   ) {
-    return this.projectsService.update(userId, id, name, folderId);
+    return this.projectsService.update(userId, id, name, folderId, category);
   }
 
   @Delete(':id')

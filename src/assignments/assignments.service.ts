@@ -413,6 +413,7 @@ export class AssignmentsService {
     >;
     const questionsToReview = originalAssignment.project.questions.filter(
       (q) => {
+        if (q.isInformation) return false;
         const studentAnswer = answers[q.id];
         // Boş bırakılanlar veya yanlış cevaplananlar
         return !studentAnswer || studentAnswer !== q.correctAnswer;
@@ -484,6 +485,8 @@ export class AssignmentsService {
             height: q.height,
             bottomSpacing: q.bottomSpacing,
             difficulty: q.difficulty,
+            isInformation: q.isInformation || false,
+            infoType: q.infoType || null,
           })),
         },
       },
@@ -539,6 +542,7 @@ export class AssignmentsService {
 
       const answers = (assignment.answers || {}) as Record<string, string>;
       const mistakenQuestions = assignment.project.questions.filter((q) => {
+        if (q.isInformation) return false;
         const studentAnswer = answers[q.id];
         return !studentAnswer || studentAnswer !== q.correctAnswer;
       });
@@ -552,6 +556,8 @@ export class AssignmentsService {
           height: mq.height,
           bottomSpacing: mq.bottomSpacing,
           difficulty: mq.difficulty,
+          isInformation: mq.isInformation || false,
+          infoType: mq.infoType || null,
         });
       }
     }

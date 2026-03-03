@@ -77,4 +77,9 @@ export class UpsertSettingsDto {
   @IsString()
   @IsOptional()
   coverTitle?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  showOpticalForm?: boolean;
 }

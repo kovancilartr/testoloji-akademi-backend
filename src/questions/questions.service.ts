@@ -9,7 +9,7 @@ import { getQuestionLimit } from '../common/config/limits';
 
 @Injectable()
 export class QuestionsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async create(
     projectId: string,
@@ -39,6 +39,8 @@ export class QuestionsService {
       height: number;
       difficulty?: number | null;
       correctAnswer?: string | null;
+      isInformation?: boolean;
+      infoType?: string | null;
     }[],
     userRole: Role,
     userTier: SubscriptionTier,
@@ -75,6 +77,8 @@ export class QuestionsService {
             height: q.height,
             difficulty: q.difficulty ?? null,
             correctAnswer: q.correctAnswer ?? null,
+            isInformation: q.isInformation ?? false,
+            infoType: q.infoType ?? null,
             order: nextOrder++,
           },
         }),

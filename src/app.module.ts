@@ -24,6 +24,7 @@ import { StudentQuestionsModule } from './student-questions/student-questions.mo
 import { FocusModule } from './focus/focus.module';
 import { LiveSessionsModule } from './live-sessions/live-sessions.module';
 import { FoldersModule } from './folders/folders.module';
+import { OmrModule } from './omr/omr.module';
 
 @Module({
   imports: [
@@ -72,6 +73,7 @@ import { FoldersModule } from './folders/folders.module';
     FocusModule,
     LiveSessionsModule,
     FoldersModule,
+    OmrModule,
   ],
   controllers: [AppController],
   providers: [AppService],

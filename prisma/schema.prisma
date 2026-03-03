@@ -115,14 +115,22 @@ model Project {
   questions   Question[]
   settings    Settings?
   
+  category    ProjectCategory @default(SB)
+
   // Bu proje bir ödev olarak atandıysa
   assignments Assignment[]
 
   // Bu proje bir kurs içeriği ise
   courseContents CourseContent[]
+  attachments   CourseAttachment[]
  
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
+}
+
+enum ProjectCategory {
+  SB // Soru Bankası
+  FA // Fasikül
 }
 
 model Question {
@@ -167,6 +175,7 @@ model Settings {
   template       String  @default("classic") // classic, modern, compact
   showCoverPage  Boolean @default(false)
   coverTitle     String?
+  showOpticalForm Boolean @default(false)
 
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -379,6 +388,7 @@ model CourseContent {
   attemptLimit Int? @default(0) // Hak Sayısı
 
   progress  ContentProgress[]
+  attachments CourseAttachment[]
   assignments Assignment[]
   schedules   Schedule[]
 
@@ -677,4 +687,21 @@ model LiveKitConfig {
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model CourseAttachment {
+  id        String   @id @default(cuid())
+  contentId String
+  content   CourseContent @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  title     String?  // Opsiyonel özel başlık
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id])
+  url       String?  // Harici PDF linki için
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([contentId])
+  @@index([projectId])
 }

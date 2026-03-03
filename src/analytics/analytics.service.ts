@@ -39,6 +39,7 @@ export class AnalyticsService {
                     imageUrl: true,
                     correctAnswer: true,
                     order: true,
+                    isInformation: true,
                   },
                 },
               },
@@ -102,7 +103,7 @@ export class AnalyticsService {
     const scoreHistory = exams
       .map((ex) => {
         const answers = (ex.answers as Record<string, string>) || {};
-        const questions = ex.project?.questions || [];
+        const questions = (ex.project?.questions || []).filter(q => !q.isInformation);
 
         let correct = 0;
         let wrong = 0;
@@ -225,7 +226,7 @@ export class AnalyticsService {
             project: {
               select: {
                 questions: {
-                  select: { id: true, correctAnswer: true },
+                  select: { id: true, correctAnswer: true, isInformation: true },
                 },
               },
             },
@@ -243,7 +244,7 @@ export class AnalyticsService {
 
       exams.forEach((ex) => {
         const answers = (ex.answers as Record<string, string>) || {};
-        const questions = ex.project?.questions || [];
+        const questions = (ex.project?.questions || []).filter(q => !q.isInformation);
         let correct = 0;
         let wrong = 0;
 
@@ -307,6 +308,7 @@ export class AnalyticsService {
                     correctAnswer: true,
                     order: true,
                     difficulty: true,
+                    isInformation: true,
                   },
                 },
               },
@@ -327,7 +329,7 @@ export class AnalyticsService {
 
     student.assignments.forEach((assignment) => {
       const answers = (assignment.answers as Record<string, string>) || {};
-      const questions = assignment.project?.questions || [];
+      const questions = (assignment.project?.questions || []).filter(q => !q.isInformation);
 
       questions.forEach((q) => {
         const studentAnswer = answers[q.id];

@@ -31,7 +31,7 @@ export class CoachingService {
     private schedulesService: SchedulesService,
     private systemSettingsService: SystemSettingsService,
     @InjectQueue('ai-coaching') private aiQueue: Queue,
-  ) {}
+  ) { }
 
   /**
    * Gemini AI nesnesini yapılandırır.
@@ -493,7 +493,9 @@ export class CoachingService {
         parts.push({ text: promptText });
 
         if (latestAssignment && latestAssignment.project) {
-          const questions = latestAssignment.project.questions;
+          const questions = latestAssignment.project.questions.filter(
+            (q) => !q.isInformation,
+          );
           const answers =
             (latestAssignment.answers as Record<string, string>) || {};
 
