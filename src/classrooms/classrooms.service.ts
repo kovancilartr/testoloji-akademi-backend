@@ -5,19 +5,20 @@ import { UpdateClassroomDto } from './dto/update-classroom.dto';
 
 @Injectable()
 export class ClassroomsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
-  async create(teacherId: string, dto: CreateClassroomDto) {
+  async create(teacherId: string, organizationId: string, dto: CreateClassroomDto) {
     const { studentIds, ...classroomData } = dto;
 
     return this.prisma.classroom.create({
       data: {
         ...classroomData,
         teacherId,
+        organizationId,
         students: studentIds
           ? {
-              connect: studentIds.map((id) => ({ id })),
-            }
+            connect: studentIds.map((id) => ({ id })),
+          }
           : undefined,
       },
       include: {
@@ -29,9 +30,14 @@ export class ClassroomsService {
     });
   }
 
-  async findAll(teacherId: string) {
+  async findAll(teacherId: string, organizationId?: string) {
     return this.prisma.classroom.findMany({
-      where: { teacherId },
+      where: {
+        OR: [
+          { teacherId },
+          ...(organizationId ? [{ teacher: { organizationId } }] : []),
+        ],
+      },
       include: {
         _count: {
           select: { students: true },
@@ -83,8 +89,8 @@ export class ClassroomsService {
         ...classroomData,
         students: studentIds
           ? {
-              set: studentIds.map((id) => ({ id })),
-            }
+            set: studentIds.map((id) => ({ id })),
+          }
           : undefined,
       },
       include: {

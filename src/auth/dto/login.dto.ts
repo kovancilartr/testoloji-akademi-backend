@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsString, MinLength, IsOptional } from 'class-validator';
 
 export class LoginDto {
   @IsEmail({}, { message: 'Geçersiz e-posta adresi.' })
@@ -9,5 +9,10 @@ export class LoginDto {
   password: string;
 
   @IsString()
+  @IsOptional()
+  organizationId?: string;
+
+  @IsString()
+  @IsOptional()
   appType?: string;
 }

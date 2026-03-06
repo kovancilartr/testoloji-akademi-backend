@@ -7,6 +7,7 @@ import {
   Param,
   Query,
   Patch,
+  ForbiddenException,
 } from '@nestjs/common';
 import { CoachingService } from './coaching.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -15,12 +16,13 @@ import { AskAiDto } from './dto/ask-ai.dto';
 import { AnalyzeProgressDto } from './dto/analyze-progress.dto';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
-import { Role } from '@prisma/client';
+import { Role, SubscriptionTier } from '@prisma/client';
+import { hasFeatureAccess } from '../common/config/limits';
 
 @Controller('coaching')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class CoachingController {
-  constructor(private readonly coachingService: CoachingService) {}
+  constructor(private readonly coachingService: CoachingService) { }
 
   @Get('usage')
   @Roles(Role.STUDENT, Role.TEACHER, Role.ADMIN)
@@ -30,7 +32,15 @@ export class CoachingController {
 
   @Post('ask')
   @Roles(Role.STUDENT, Role.TEACHER, Role.ADMIN)
-  async askAi(@GetUser('userId') userId: string, @Body() dto: AskAiDto) {
+  async askAi(
+    @GetUser('userId') userId: string,
+    @GetUser('role') role: Role,
+    @GetUser('tier') tier: SubscriptionTier,
+    @Body() dto: AskAiDto,
+  ) {
+    if (!hasFeatureAccess(role, tier, 'CAN_USE_AI_COACHING')) {
+      throw new ForbiddenException('Yapay Zeka Koçluk özelliği paketinizde (BRONZ ve üzeri) bulunmamaktadır.');
+    }
     return this.coachingService.askAi(userId, dto);
   }
 
@@ -38,8 +48,13 @@ export class CoachingController {
   @Roles(Role.STUDENT, Role.TEACHER, Role.ADMIN)
   async analyzeProgress(
     @GetUser('userId') userId: string,
+    @GetUser('role') role: Role,
+    @GetUser('tier') tier: SubscriptionTier,
     @Body() dto: AnalyzeProgressDto,
   ) {
+    if (!hasFeatureAccess(role, tier, 'CAN_USE_AI_COACHING')) {
+      throw new ForbiddenException('Analiz özelliği paketinizde (BRONZ ve üzeri) bulunmamaktadır.');
+    }
     return this.coachingService.analyzeProgress(userId, dto);
   }
 
@@ -47,9 +62,14 @@ export class CoachingController {
   @Roles(Role.TEACHER, Role.ADMIN)
   async analyzeStudent(
     @GetUser('userId') teacherUserId: string,
+    @GetUser('role') role: Role,
+    @GetUser('tier') tier: SubscriptionTier,
     @Param('studentId') studentId: string,
     @Body() dto: AnalyzeProgressDto,
   ) {
+    if (!hasFeatureAccess(role, tier, 'CAN_USE_AI_COACHING')) {
+      throw new ForbiddenException('Öğrenci analizi özelliği paketinizde (BRONZ ve üzeri) bulunmamaktadır.');
+    }
     return this.coachingService.analyzeStudentForTeacher(
       teacherUserId,
       studentId,

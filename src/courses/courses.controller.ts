@@ -8,6 +8,7 @@ import {
   Delete,
   UseGuards,
   Query,
+  ForbiddenException,
 } from '@nestjs/common';
 import { CoursesService } from './courses.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -15,15 +16,16 @@ import { GetUser } from '../common/decorators/get-user.decorator';
 import { CreateCourseDto } from './dto/create-course.dto';
 import { AddModuleDto } from './dto/add-module.dto';
 import { AddContentDto } from './dto/add-content.dto';
-import { ProgressStatus, Role } from '@prisma/client';
+import { ProgressStatus, Role, SubscriptionTier } from '@prisma/client';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CoachingAccessGuard } from '../auth/guards/coaching-access.guard';
+import { hasFeatureAccess } from '../common/config/limits';
 
 @Controller('courses')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class CoursesController {
-  constructor(private readonly coursesService: CoursesService) {}
+  constructor(private readonly coursesService: CoursesService) { }
 
   // --- Admin Routes ---
 
@@ -75,8 +77,11 @@ export class CoursesController {
   @Get()
   @Roles(Role.TEACHER, Role.ADMIN)
   @UseGuards(CoachingAccessGuard)
-  async listInstructorCourses(@GetUser('userId') userId: string) {
-    return this.coursesService.listCourses(userId);
+  async listInstructorCourses(
+    @GetUser('userId') userId: string,
+    @GetUser('organizationId') organizationId: string,
+  ) {
+    return this.coursesService.listCourses(userId, organizationId);
   }
 
   @Post()
@@ -84,9 +89,15 @@ export class CoursesController {
   @UseGuards(CoachingAccessGuard)
   async createCourse(
     @GetUser('userId') userId: string,
+    @GetUser('organizationId') organizationId: string,
+    @GetUser('role') role: Role,
+    @GetUser('tier') tier: SubscriptionTier,
     @Body() dto: CreateCourseDto,
   ) {
-    return this.coursesService.createCourse(userId, dto);
+    if (!hasFeatureAccess(role, tier, 'CAN_CREATE_COURSE')) {
+      throw new ForbiddenException('Ders paketi oluşturma özelliği paketinizde (ALTIN) bulunmamaktadır.');
+    }
+    return this.coursesService.createCourse(userId, organizationId, dto);
   }
 
   @Get(':id')

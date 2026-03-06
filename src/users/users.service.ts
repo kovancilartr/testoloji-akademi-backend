@@ -8,7 +8,7 @@ import { Role, SubscriptionTier } from '@prisma/client';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async getAllUsers() {
     const users = await this.prisma.user.findMany({
@@ -31,13 +31,28 @@ export class UsersService {
             students: true, // Öğretmenin öğrenci sayısı (TeacherStudents relation)
           },
         },
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            logoUrl: true,
+          },
+        },
         // Eğer bu kullanıcı bir öğrenci ise, bağlı olduğu öğretmeni getir
         studentProfile: {
           select: {
             teacher: {
               select: {
+                id: true,
                 name: true,
                 email: true,
+                organization: {
+                  select: {
+                    id: true,
+                    name: true,
+                    logoUrl: true,
+                  },
+                },
               },
             },
           },
@@ -157,6 +172,7 @@ export class UsersService {
       totalEnrollments,
       activeUsersLast7Days,
       newUsersLast30Days,
+      totalOrganizations,
     ] = await Promise.all([
       this.prisma.user.count(),
       this.prisma.project.count(),
@@ -167,12 +183,9 @@ export class UsersService {
       this.prisma.assignment.count({ where: { status: 'PENDING' } }),
       this.prisma.coachingHistory.count(),
       this.prisma.courseEnrollment.count(),
-      this.prisma.user.count({
-        where: { updatedAt: { gte: sevenDaysAgo } },
-      }),
-      this.prisma.user.count({
-        where: { createdAt: { gte: thirtyDaysAgo } },
-      }),
+      this.prisma.user.count({ where: { updatedAt: { gte: sevenDaysAgo } } }),
+      this.prisma.user.count({ where: { createdAt: { gte: thirtyDaysAgo } } }),
+      this.prisma.organization.count(),
     ]);
 
     const usersByRole = await this.prisma.user.groupBy({
@@ -218,6 +231,7 @@ export class UsersService {
       totalEnrollments,
       activeUsersLast7Days,
       newUsersLast30Days,
+      totalOrganizations,
       usersByRole,
       usersByTier,
       recentUsers,
@@ -225,15 +239,41 @@ export class UsersService {
     };
   }
 
-  async getTeacherStats(teacherId: string) {
+  async getTeacherStats(teacherId: string, organizationId?: string) {
     const [totalProjects, totalStudents, totalCourses, totalAssignments] =
       await Promise.all([
-        this.prisma.project.count({ where: { userId: teacherId } }),
-        this.prisma.student.count({ where: { teacherId } }),
-        this.prisma.course.count({ where: { instructorId: teacherId } }),
+        this.prisma.project.count({
+          where: {
+            OR: [
+              { userId: teacherId },
+              ...(organizationId ? [{ user: { organizationId } }] : []),
+            ],
+          },
+        }),
+        this.prisma.student.count({
+          where: {
+            OR: [
+              { teacherId },
+              ...(organizationId ? [{ teacher: { organizationId } }] : []),
+            ],
+          },
+        }),
+        this.prisma.course.count({
+          where: {
+            OR: [
+              { instructorId: teacherId },
+              ...(organizationId ? [{ instructor: { organizationId } }] : []),
+            ],
+          },
+        }),
         this.prisma.assignment.count({
           where: {
-            project: { userId: teacherId },
+            project: {
+              OR: [
+                { userId: teacherId },
+                ...(organizationId ? [{ user: { organizationId } }] : []),
+              ],
+            },
             status: 'PENDING',
           },
         }),
@@ -299,5 +339,12 @@ export class UsersService {
         },
       });
     }
+  }
+
+  async updateUserOrganization(userId: string, organizationId: string | null) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { organizationId },
+    });
   }
 }

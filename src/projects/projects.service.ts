@@ -18,6 +18,7 @@ export class ProjectsService {
     userRole: Role,
     userTier: SubscriptionTier,
     folderId?: string | null,
+    organizationId?: string,
     category?: ProjectCategory,
   ) {
     const currentCount = await this.prisma.project.count({
@@ -35,15 +36,21 @@ export class ProjectsService {
       data: {
         name,
         userId,
+        organizationId, // Inherit from user
         ...(folderId ? { folderId } : {}),
         category: category || 'SB',
       },
     });
   }
 
-  async getAllByUser(userId: string) {
+  async getAllByUser(userId: string, organizationId?: string) {
     return await this.prisma.project.findMany({
-      where: { userId },
+      where: {
+        OR: [
+          { userId },
+          ...(organizationId ? [{ user: { organizationId } }] : []),
+        ],
+      },
       orderBy: { updatedAt: 'desc' },
       include: {
         _count: {

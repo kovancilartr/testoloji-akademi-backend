@@ -24,14 +24,18 @@ export class ProjectsController {
     @GetUser('userId') userId: string,
     @GetUser('role') role: Role,
     @GetUser('tier') tier: SubscriptionTier,
+    @GetUser('organizationId') organizationId: string,
     @Body() dto: CreateProjectDto,
   ) {
-    return this.projectsService.create(userId, dto.name, role, tier, dto.folderId ?? null);
+    return this.projectsService.create(userId, dto.name, role, tier, dto.folderId ?? null, organizationId);
   }
 
   @Get()
-  async getAll(@GetUser('userId') userId: string) {
-    return this.projectsService.getAllByUser(userId);
+  async getAll(
+    @GetUser('userId') userId: string,
+    @GetUser('organizationId') organizationId: string,
+  ) {
+    return this.projectsService.getAllByUser(userId, organizationId);
   }
 
   @Get(':id')

@@ -15,9 +15,9 @@ export class AcademyService {
   constructor(
     private prisma: PrismaService,
     private notificationsService: NotificationsService,
-  ) {}
+  ) { }
 
-  async createStudent(teacherId: string, dto: CreateStudentDto) {
+  async createStudent(teacherId: string, organizationId: string, dto: CreateStudentDto) {
     const {
       name,
       gradeLevel,
@@ -64,14 +64,20 @@ export class AcademyService {
           notes,
           dailyQuestionLimit: dailyQuestionLimit || 0, // 0 = Paket varsayılanı
           classroomId: classroomId || null,
+          organizationId, // Inherit from teacher
         },
       });
     });
   }
 
-  async getStudents(teacherId: string) {
+  async getStudents(teacherId: string, organizationId?: string) {
     return await this.prisma.student.findMany({
-      where: { teacherId },
+      where: {
+        OR: [
+          { teacherId },
+          ...(organizationId ? [{ teacher: { organizationId } }] : []),
+        ],
+      },
       orderBy: { createdAt: 'desc' },
       include: {
         _count: {

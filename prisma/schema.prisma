@@ -1,11 +1,520 @@
-
 generator client {
-  provider      = "prisma-client-js"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id           String      @id @default(cuid())
+  name         String
+  slug         String      @unique
+  primaryColor String      @default("#f97316")
+  logoUrl      String?
+  faviconUrl   String?
+  favTitle     String?
+  customDomain String?     @unique
+  authTitle       String?
+  authDescription String?
+  loginTitle      String?     @default("Tekrar Hoş Geldiniz!")
+  loginSubtitle   String?     @default("Lütfen hesabınıza giriş yapmak için bilgilerinizi girin.")
+  registerTitle   String?     @default("Aramıza Katılın!")
+  registerSubtitle String?    @default("Yeni bir hesap oluşturarak aramıza katılın.")
+  authImageUrl     String?
+  fontFamily       String?     @default("Inter")
+  defaultTheme     String?     @default("light")
+  supportEmail     String?
+  supportPhone     String?
+  whatsappNumber   String?
+  // Landing Page Content
+  heroBadge        String?
+  heroTitle        String?
+  heroDescription  String?
+  heroCta          String?
+  heroSecondaryCta String?
+  heroFeatures     String?
+  featuresTitle    String?
+  featuresSubtitle String?
+  ctaTitle         String?
+  ctaDescription   String?
+  ctaButtonText    String?
+  ownerId         String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  classrooms   Classroom[]
+  courses      Course[]
+  projects     Project[]
+  students     Student[]
+  users        User[]
+}
+
+model User {
+  id                     String                  @id @default(cuid())
+  email                  String                  @unique
+  password               String
+  name                   String?
+  role                   Role                    @default(TEACHER)
+  tier                   SubscriptionTier        @default(RESTRICTED)
+  isActive               Boolean                 @default(true)
+  passwordChangeRequired Boolean                 @default(false)
+  resetToken             String?                 @unique
+  resetTokenExpires      DateTime?
+  subscriptionStarted    DateTime?
+  subscriptionExpires    DateTime?
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  hasCoachingAccess      Boolean                 @default(false)
+  dailyAiLimit           Int                     @default(0)
+  phone                  String?
+  deviceTokens           String[]                @default([])
+  organizationId         String?
+  aiUsages               AiUsage[]
+  classrooms             Classroom[]             @relation("TeacherClassrooms")
+  coachingHistory        CoachingHistory[]
+  courses                Course[]
+  liveKitConfig          LiveKitConfig?
+  liveSessions           LiveSession[]
+  notifications          Notification[]
+  sentBroadcasts         NotificationBroadcast[] @relation("SentBroadcasts")
+  projects               Project[]
+  projectFolders         ProjectFolder[]
+  refreshTokens          RefreshToken[]
+  students               Student[]               @relation("TeacherStudents")
+  studentProfile         Student?
+  assignedQuestions      StudentQuestion[]
+  organization           Organization?           @relation(fields: [organizationId], references: [id])
+}
+
+model AiUsage {
+  id        String   @id @default(cuid())
+  userId    String
+  date      String
+  count     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+}
+
+model ProjectFolder {
+  id        String    @id @default(cuid())
+  name      String
+  color     String    @default("#f97316")
+  userId    String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  projects  Project[]
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Project {
+  id             String             @id @default(cuid())
+  name           String
+  userId         String
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  folderId       String?
+  category       ProjectCategory    @default(SB)
+  organizationId String?
+  assignments    Assignment[]
+  attachments    CourseAttachment[]
+  courseContents CourseContent[]
+  folder         ProjectFolder?     @relation(fields: [folderId], references: [id])
+  organization   Organization?      @relation(fields: [organizationId], references: [id])
+  user           User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questions      Question[]
+  settings       Settings?
+}
+
+model Question {
+  id            String   @id @default(cuid())
+  projectId     String
+  imageUrl      String
+  order         Int
+  width         Float
+  height        Float
+  bottomSpacing Int      @default(0)
+  difficulty    Int?
+  correctAnswer String?
+  createdAt     DateTime @default(now())
+  isInformation Boolean  @default(false)
+  infoType      String?
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model Settings {
+  id              String   @id @default(cuid())
+  projectId       String   @unique
+  title           String?
+  subtitle        String?
+  schoolName      String?
+  colCount        Int      @default(2)
+  questionSpacing Int      @default(10)
+  watermarkText   String?
+  showDebug       Boolean  @default(false)
+  primaryColor    String   @default("#f97316")
+  fontFamily      String   @default("Roboto")
+  showDifficulty  Boolean  @default(false)
+  showAnswerKey   Boolean  @default(false)
+  qrCodeUrl       String?
+  template        String   @default("classic")
+  showCoverPage   Boolean  @default(false)
+  coverTitle      String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  displayMode     String   @default("normal")
+  showOpticalForm Boolean  @default(false)
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Student {
+  id                        String                   @id @default(cuid())
+  teacherId                 String
+  userId                    String?                  @unique
+  name                      String
+  email                     String?
+  phone                     String?
+  gradeLevel                String?
+  notes                     String?
+  createdAt                 DateTime                 @default(now())
+  updatedAt                 DateTime                 @updatedAt
+  dailyQuestionLimit        Int                      @default(0)
+  parentPhone               String?
+  classroomId               String?
+  organizationId            String?
+  assignments               Assignment[]
+  contentProgress           ContentProgress[]
+  enrollments               CourseEnrollment[]
+  focusSessions             FocusSession[]
+  liveSessionParticipations LiveSessionParticipant[]
+  schedules                 Schedule[]
+  classroom                 Classroom?               @relation(fields: [classroomId], references: [id])
+  organization              Organization?            @relation(fields: [organizationId], references: [id])
+  teacher                   User                     @relation("TeacherStudents", fields: [teacherId], references: [id], onDelete: Cascade)
+  user                      User?                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questions                 StudentQuestion[]
+}
+
+model FocusSession {
+  id                String      @id @default(cuid())
+  studentId         String
+  subject           String
+  duration          Int
+  actualTime        Int         @default(0)
+  breakTime         Int         @default(0)
+  status            FocusStatus @default(IN_PROGRESS)
+  startTime         DateTime    @default(now())
+  endTime           DateTime?
+  interruptionCount Int         @default(0)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  student           Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+}
+
+model Assignment {
+  id                 String           @id @default(cuid())
+  studentId          String
+  title              String
+  description        String?
+  type               AssignmentType   @default(CUSTOM)
+  status             AssignmentStatus @default(PENDING)
+  projectId          String?
+  externalUrl        String?
+  dueDate            DateTime?
+  duration           Int?             @default(0)
+  allowedAttempts    Int              @default(1)
+  attemptCount       Int              @default(0)
+  completedAt        DateTime?
+  grade              Float?
+  answers            Json?
+  feedback           String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  contentId          String?
+  correctCount       Int?
+  incorrectCount     Int?
+  aiAnalysis         String?
+  isArchivedFromPool Boolean          @default(false)
+  content            CourseContent?   @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  project            Project?         @relation(fields: [projectId], references: [id])
+  student            Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model Schedule {
+  id          String         @id @default(cuid())
+  studentId   String
+  date        DateTime?
+  dayOfWeek   Int?
+  startTime   String?
+  endTime     String?
+  activity    String
+  isCompleted Boolean        @default(false)
+  courseId    String?
+  contentId   String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  isAllDay    Boolean        @default(false)
+  note        String?
+  subject     String?
+  content     CourseContent? @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  student     Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model Course {
+  id             String             @id @default(cuid())
+  title          String
+  description    String?
+  thumbnailUrl   String?
+  instructorId   String
+  isPublished    Boolean            @default(false)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  organizationId String?
+  instructor     User               @relation(fields: [instructorId], references: [id])
+  organization   Organization?      @relation(fields: [organizationId], references: [id])
+  enrollments    CourseEnrollment[]
+  modules        CourseModule[]
+}
+
+model CourseModule {
+  id        String          @id @default(cuid())
+  courseId  String
+  title     String
+  order     Int             @default(0)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  contents  CourseContent[]
+  course    Course          @relation(fields: [courseId], references: [id], onDelete: Cascade)
+}
+
+model CourseContent {
+  id           String             @id @default(cuid())
+  moduleId     String
+  title        String
+  type         ContentType
+  order        Int                @default(0)
+  url          String?
+  projectId    String?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  attemptLimit Int?               @default(0)
+  duration     Int?               @default(0)
+  assignments  Assignment[]
+  progress     ContentProgress[]
+  attachments  CourseAttachment[]
+  module       CourseModule       @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  project      Project?           @relation(fields: [projectId], references: [id])
+  schedules    Schedule[]
+}
+
+model CourseEnrollment {
+  id          String    @id @default(cuid())
+  courseId    String
+  studentId   String
+  enrolledAt  DateTime  @default(now())
+  completedAt DateTime?
+  course      Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  student     Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, studentId])
+}
+
+model ContentProgress {
+  id        String         @id @default(cuid())
+  contentId String
+  studentId String
+  status    ProgressStatus @default(NOT_STARTED)
+  updatedAt DateTime       @updatedAt
+  content   CourseContent  @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  student   Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([contentId, studentId])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      NotificationType @default(INFO)
+  isRead    Boolean          @default(false)
+  link      String?
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model NotificationBroadcast {
+  id            String          @id @default(cuid())
+  senderId      String
+  title         String
+  message       String
+  link          String?
+  targetUserIds String[]
+  scheduledFor  DateTime?
+  status        BroadcastStatus @default(PENDING)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  sender        User            @relation("SentBroadcasts", fields: [senderId], references: [id], onDelete: Cascade)
+}
+
+model CoachingHistory {
+  id           String   @id @default(cuid())
+  userId       String
+  query        String
+  response     String
+  createdAt    DateTime @default(now())
+  action       String?
+  assignmentId String?
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([assignmentId])
+}
+
+model SystemSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  isEncrypted Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model AiUsageLog {
+  id               String   @id @default(cuid())
+  model            String
+  promptTokens     Int      @default(0)
+  completionTokens Int      @default(0)
+  totalTokens      Int      @default(0)
+  action           String?
+  userId           String?
+  createdAt        DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([userId])
+}
+
+model StudentQuestion {
+  id         String         @id @default(cuid())
+  studentId  String
+  teacherId  String?
+  lesson     String
+  imageUrl   String
+  status     QuestionStatus @default(PENDING)
+  answerUrl  String?
+  answerText String?
+  answeredAt DateTime?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  isDeleted  Boolean        @default(false)
+  student    Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  teacher    User?          @relation(fields: [teacherId], references: [id])
+
+  @@index([studentId])
+  @@index([teacherId])
+  @@index([status])
+}
+
+model Classroom {
+  id             String        @id @default(cuid())
+  name           String
+  description    String?
+  teacherId      String
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  teacher        User          @relation("TeacherClassrooms", fields: [teacherId], references: [id], onDelete: Cascade)
+  liveSessions   LiveSession[]
+  students       Student[]
+
+  @@index([teacherId])
+}
+
+model LiveSession {
+  id              String                   @id @default(cuid())
+  teacherId       String
+  classroomId     String?
+  title           String
+  roomName        String                   @unique
+  status          LiveSessionStatus        @default(SCHEDULED)
+  maxParticipants Int                      @default(10)
+  maxDuration     Int                      @default(60)
+  scheduledAt     DateTime?
+  startedAt       DateTime?
+  endedAt         DateTime?
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+  egressId        String?
+  recordingKey    String?
+  downloadCount   Int                      @default(0)
+  viewCount       Int                      @default(0)
+  classroom       Classroom?               @relation(fields: [classroomId], references: [id])
+  teacher         User                     @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  participants    LiveSessionParticipant[]
+
+  @@index([teacherId])
+  @@index([classroomId])
+  @@index([status])
+}
+
+model LiveSessionParticipant {
+  id        String      @id @default(cuid())
+  sessionId String
+  studentId String
+  joinedAt  DateTime    @default(now())
+  leftAt    DateTime?
+  duration  Int         @default(0)
+  session   LiveSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  student   Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, studentId])
+  @@index([sessionId])
+  @@index([studentId])
+}
+
+model LiveKitConfig {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  apiKey      String
+  apiSecret   String
+  url         String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  s3AccessKey String?
+  s3Bucket    String?
+  s3Endpoint  String?
+  s3SecretKey String?
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CourseAttachment {
+  id        String        @id @default(cuid())
+  contentId String
+  title     String?
+  projectId String?
+  url       String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  content   CourseContent @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  project   Project?      @relation(fields: [projectId], references: [id])
+
+  @@index([contentId])
+  @@index([projectId])
 }
 
 enum Role {
@@ -15,243 +524,16 @@ enum Role {
 }
 
 enum SubscriptionTier {
-  RESTRICTED // Kayıt sonrası onay bekleyen kısıtlı mod
   FREE
   BRONZ
   GUMUS
   ALTIN
-}
-
-model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  password      String
-  name          String?
-  role          Role      @default(TEACHER)
-  tier          SubscriptionTier @default(RESTRICTED)
-  isActive      Boolean   @default(true)
-  hasCoachingAccess Boolean @default(false)
-  passwordChangeRequired Boolean @default(false)
-  dailyAiLimit  Int       @default(0) // Günlük AI kullanım limiti (0 = Paket varsayılanı)
-  
-  projects      Project[]
-  projectFolders ProjectFolder[]
-  refreshTokens RefreshToken[]
-  
-  // Öğretmen ise öğrencileri
-  students      Student[] @relation("TeacherStudents")
-  
-  // Öğretmen/Eğitmen ise oluşturduğu kurslar
-  courses       Course[]
-  
-  // Öğrenci ise kendi profili
-  studentProfile Student?
-
-  resetToken        String?   @unique
-  resetTokenExpires DateTime?
-
-  subscriptionStarted DateTime?
-  subscriptionExpires DateTime?
-
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  notifications Notification[]
-  aiUsages      AiUsage[]
-  coachingHistory CoachingHistory[]
-  
-  // Öğretmen ise cevaplaması gereken sorular
-  assignedQuestions StudentQuestion[]
-  
-  // Öğretmen ise gönderdiği genel bildirimler
-  sentBroadcasts NotificationBroadcast[] @relation("SentBroadcasts")
-  
-  // Öğretmen ise yönettiği sınıflar
-  classrooms    Classroom[] @relation("TeacherClassrooms")
-  liveSessions  LiveSession[]
-  liveKitConfig LiveKitConfig?
-  
-  phone         String?   // WhatsApp entegrasyonu için
-  deviceTokens  String[]  @default([]) // Push bildirimleri için cihaz tokenları
-}
-
-// ... (other models)
-
-model AiUsage {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  date      String   // "2024-02-12" formatında gün bilgisi
-  count     Int      @default(0)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([userId, date])
-}
-
-model ProjectFolder {
-  id          String    @id @default(cuid())
-  name        String
-  color       String    @default("#f97316")
-  userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  projects    Project[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-}
-
-model Project {
-  id          String          @id @default(cuid())
-  name        String
-  userId      String
-  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  // Klasör ilişkisi — opsiyonel, null ise "Klasörsüz"
-  folderId    String?
-  folder      ProjectFolder?  @relation(fields: [folderId], references: [id], onDelete: SetNull)
-
-  questions   Question[]
-  settings    Settings?
-  
-  category    ProjectCategory @default(SB)
-
-  // Bu proje bir ödev olarak atandıysa
-  assignments Assignment[]
-
-  // Bu proje bir kurs içeriği ise
-  courseContents CourseContent[]
-  attachments   CourseAttachment[]
- 
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  RESTRICTED
 }
 
 enum ProjectCategory {
-  SB // Soru Bankası
-  FA // Fasikül
-}
-
-model Question {
-  id        String   @id @default(cuid())
-  projectId String
-  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  
-  imageUrl  String
-  order     Int
-  width     Float
-  height    Float
-  bottomSpacing Int @default(0)
-  
-  difficulty    Int?
-  correctAnswer String?
-  isInformation Boolean  @default(false)
-  infoType      String?  // info, warning, danger, success, formula
-
-  createdAt DateTime @default(now())
-}
-
-model Settings {
-  id             String  @id @default(cuid())
-  projectId      String  @unique
-  project        Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  
-  title          String?
-  subtitle       String?
-  schoolName     String?
-  colCount       Int     @default(2)
-
-  questionSpacing Int     @default(10)
-  watermarkText  String?
-  showDebug      Boolean @default(false)
-  displayMode    String  @default("normal")
-  primaryColor   String  @default("#f97316")
-  fontFamily     String  @default("Roboto")
-  
-  showDifficulty Boolean @default(false)
-  showAnswerKey  Boolean @default(false)
-  qrCodeUrl      String?
-  template       String  @default("classic") // classic, modern, compact
-  showCoverPage  Boolean @default(false)
-  coverTitle     String?
-  showOpticalForm Boolean @default(false)
-
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-}
-
-model RefreshToken {
-  id        String   @id @default(cuid())
-  token     String   @unique
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-}
-
-// --------------------------------------
-// AKADEMİ & KOÇLUK MODELLERİ
-// --------------------------------------
-
-model Student {
-  id String @id @default(cuid())
-  
-  // Hangi öğretmene bağlı?
-  teacherId String
-  teacher User @relation("TeacherStudents", fields: [teacherId], references: [id], onDelete: Cascade)
-
-  // Eğer öğrenci sisteme giriş yapacaksa User tablosu ile eşleşir
-  userId String? @unique
-  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  name String
-  email String?
-  phone String?
-  parentPhone String? // Veli telefonu, raporlama için
-  gradeLevel String?
-  dailyQuestionLimit Int @default(0) // Günlük soru sorma limiti (0 = Paket varsayılanı)
-  notes String? // Öğretmen notları
-  
-  // Hangi sınıfa dahil?
-  classroomId String?
-  classroom Classroom? @relation(fields: [classroomId], references: [id], onDelete: SetNull)
-  
-  assignments Assignment[]
-  schedules   Schedule[]
-
-  // Kurs katılımı ve ilerleme
-  enrollments CourseEnrollment[]
-  contentProgress ContentProgress[]
-  
-  questions StudentQuestion[]
-  focusSessions FocusSession[]
-  liveSessionParticipations LiveSessionParticipant[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model FocusSession {
-  id          String   @id @default(cuid())
-  studentId   String
-  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  
-  subject     String   // TYT Matematik, Geometri vb.
-  duration    Int      // Hedeflenen süre (dakika)
-  actualTime  Int      @default(0) // Gerçekleşen çalışma süresi (dakika)
-  breakTime   Int      @default(0) // Toplam mola süresi (dakika)
-  status      FocusStatus @default(IN_PROGRESS)
-  
-  startTime   DateTime @default(now())
-  endTime     DateTime?
-  
-  interruptionCount Int @default(0) // Odak bölünme sayısı
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@index([studentId])
+  SB
+  FA
 }
 
 enum FocusStatus {
@@ -261,186 +543,18 @@ enum FocusStatus {
   CANCELLED
 }
 
-model Assignment {
-  id String @id @default(cuid())
-  
-  studentId String
-  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
-
-  title String
-  description String?
-  
-  type AssignmentType @default(CUSTOM)
-  status AssignmentStatus @default(PENDING)
-  
-  // İçerik (Opsiyonel)
-  projectId String?
-  project Project? @relation(fields: [projectId], references: [id]) // Testoloji projesi
-  
-  contentId String? // Bağlı kurs içeriği ID'si
-  content   CourseContent? @relation(fields: [contentId], references: [id], onDelete: Cascade)
-  
-  externalUrl String? // Youtube video, makale linki
-  
-  dueDate DateTime?
-  duration Int? @default(0) // Dakika (0 = limitsiz)
-  allowedAttempts Int @default(1)
-  attemptCount Int @default(0)
-
-  completedAt DateTime?
-  
-  grade Float? // 0-100 arası puan
-  correctCount Int? // Doğru sayısı
-  incorrectCount Int? // Yanlış sayısı
-  
-  answers Json? // Öğrenci cevapları
-  feedback String? // Öğretmen geri bildirimi
-  aiAnalysis String? @db.Text // AI Koç analiz sonucu (kaydedilmiş)
-
-  isArchivedFromPool Boolean @default(false) // Hata havuzundan arşivlendi mi?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Schedule {
-  id String @id @default(cuid())
-  
-  studentId String
-  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
-
-  // Belirli bir tarih için (örn: 2026-02-10)
-  date DateTime?
-  
-  // VEYA haftalık tekrarlayan program için (1=Pazartesi, 7=Pazar)
-  dayOfWeek Int?
-  
-  startTime String? // "14:00"
-  endTime String?   // "15:00"
-  isAllDay Boolean @default(false)
-  
-  activity String // "Matematik Etüdü", "Video İzleme"
-  isCompleted Boolean @default(false)
-
-  // Eğer kurs içeriği ise
-  courseId String?
-  contentId String?
-  content   CourseContent? @relation(fields: [contentId], references: [id], onDelete: Cascade)
-
-  subject   String? // Örn: "TYT Matematik"
-  note      String? @db.Text
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-// --------------------------------------
-// LMS (KURS) MODELLERİ
-// --------------------------------------
-
-model Course {
-  id          String   @id @default(cuid())
-  title       String
-  description String?
-  thumbnailUrl String?
-  
-  instructorId String
-  instructor   User    @relation(fields: [instructorId], references: [id])
-
-  isPublished Boolean @default(false)
-  
-  modules     CourseModule[]
-  enrollments CourseEnrollment[]
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-model CourseModule {
-  id        String   @id @default(cuid())
-  courseId  String
-  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  
-  title     String
-  order     Int      @default(0)
-  
-  contents  CourseContent[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model CourseContent {
-  id        String   @id @default(cuid())
-  moduleId  String
-  module    CourseModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
-  
-  title     String
-  type      ContentType
-  order     Int      @default(0)
-  
-  // İçerik detayları
-  url       String?  // Video URL, PDF URL
-  projectId String?  // Bağlı Testoloji Projesi (Eğer type == TEST ise)
-  project   Project? @relation(fields: [projectId], references: [id])
-  
-  duration     Int? @default(0) // Dakika
-  attemptLimit Int? @default(0) // Hak Sayısı
-
-  progress  ContentProgress[]
-  attachments CourseAttachment[]
-  assignments Assignment[]
-  schedules   Schedule[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model CourseEnrollment {
-  id        String   @id @default(cuid())
-  courseId  String
-  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  
-  studentId String
-  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-
-  enrolledAt  DateTime @default(now())
-  completedAt DateTime?
-
-  @@unique([courseId, studentId])
-}
-
-model ContentProgress {
-  id        String   @id @default(cuid())
-  contentId String
-  content   CourseContent @relation(fields: [contentId], references: [id], onDelete: Cascade)
-  
-  studentId String
-  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
-
-  status    ProgressStatus @default(NOT_STARTED)
-  
-  updatedAt DateTime @updatedAt
-
-  @@unique([contentId, studentId])
-}
-
-// --------------------------------------
-// ENUM TANIMLARI
-// --------------------------------------
-
 enum AssignmentType {
-  TEST     // Testoloji testi
-  VIDEO    // Video izleme ödevi
-  READING  // Okuma ödevi
-  CUSTOM   // Serbest görev
+  TEST
+  VIDEO
+  READING
+  CUSTOM
 }
 
 enum AssignmentStatus {
-  PENDING     // Bekliyor
-  IN_PROGRESS // Başlandı
-  COMPLETED   // Tamamlandı
-  OVERDUE     // Süresi geçti
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  OVERDUE
 }
 
 enum ContentType {
@@ -454,38 +568,6 @@ enum ProgressStatus {
   NOT_STARTED
   IN_PROGRESS
   COMPLETED
-}
-
-model Notification {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  title     String
-  message   String
-  type      NotificationType @default(INFO)
-  isRead    Boolean  @default(false)
-  
-  link      String?  // /dashboard/academy/assignments/:id gibi
-
-  createdAt DateTime @default(now())
-}
-
-model NotificationBroadcast {
-  id            String   @id @default(cuid())
-  senderId      String
-  sender        User     @relation("SentBroadcasts", fields: [senderId], references: [id], onDelete: Cascade)
-  
-  title         String
-  message       String   @db.Text
-  link          String?
-  targetUserIds String[] // Gönderilen kullanıcıların ID listesi
-  
-  scheduledFor  DateTime? // Ne zaman gönderilecek? (null ise hemen)
-  status        BroadcastStatus @default(PENDING)
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
 }
 
 enum BroadcastStatus {
@@ -507,201 +589,15 @@ enum NotificationType {
   QUESTION_ANSWERED
 }
 
-model CoachingHistory {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  query     String   @db.Text
-  response  String   @db.Text
-  action    String?  // 'chat' veya 'analysis' - mesaj türü
-  assignmentId String? // Hangi sınav için yapılan analiz (opsiyonel)
-  
-  createdAt DateTime @default(now())
-
-  @@index([userId])
-  @@index([assignmentId])
-}
-
-model SystemSetting {
-  id          String   @id @default(cuid())
-  key         String   @unique
-  value       String   @db.Text
-  isEncrypted Boolean  @default(false)
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-model AiUsageLog {
-  id               String   @id @default(cuid())
-  model            String
-  promptTokens     Int      @default(0)
-  completionTokens Int      @default(0)
-  totalTokens      Int      @default(0)
-  action           String?
-  userId           String?
-  
-  createdAt        DateTime @default(now())
-
-  @@index([createdAt])
-  @@index([userId])
-}
-
-
-// --------------------------------------
-// SORU-CEVAP (KOÇLUK) MODELLERİ
-// --------------------------------------
-
-model StudentQuestion {
-  id        String   @id @default(cuid())
-  
-  studentId String
-  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  
-  teacherId String?
-  teacher   User?    @relation(fields: [teacherId], references: [id])
-  
-  lesson    String   // Matematik, Fizik, Türkçe vb.
-  imageUrl  String   // Soru fotoğrafı
-  
-  status    QuestionStatus @default(PENDING)
-  
-  answerUrl String?  // Çözüm fotoğrafı
-  answerText String? // Çözüm açıklaması
-  
-  answeredAt DateTime?
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  isDeleted Boolean  @default(false)
-
-  @@index([studentId])
-  @@index([teacherId])
-  @@index([status])
-}
-
 enum QuestionStatus {
-  PENDING   // Bekliyor
-  ANSWERED  // Cevaplandı
-  REJECTED  // İptal / Uygunsuz
+  PENDING
+  ANSWERED
+  REJECTED
 }
-
-model Classroom {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  
-  teacherId   String
-  teacher     User     @relation("TeacherClassrooms", fields: [teacherId], references: [id], onDelete: Cascade)
-  
-  students    Student[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@index([teacherId])
-
-  liveSessions LiveSession[]
-}
-
-// --------------------------------------
-// CANLI DERS (LIVEKIT) MODELLERİ
-// --------------------------------------
 
 enum LiveSessionStatus {
-  SCHEDULED   // Planlandı
-  LIVE        // Yayında
-  ENDED       // Bitti
-  CANCELLED   // İptal edildi
-}
-
-model LiveSession {
-  id            String   @id @default(cuid())
-  
-  teacherId     String
-  teacher       User     @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  
-  classroomId   String?
-  classroom     Classroom? @relation(fields: [classroomId], references: [id], onDelete: SetNull)
-  
-  title         String            // Ders konusu
-  roomName      String   @unique  // LiveKit oda adı
-  status        LiveSessionStatus @default(SCHEDULED)
-  
-  maxParticipants Int    @default(10) // Plan bazlı öğrenci sınırı
-  maxDuration     Int    @default(60) // Dakika cinsinden max süre
-  
-  scheduledAt   DateTime?  // Planlanan başlangıç zamanı
-  startedAt     DateTime?  // Gerçek başlangıç zamanı
-  endedAt       DateTime?  // Bitiş zamanı
-  
-  egressId      String?    // LiveKit Egress ID (Kayıt takibi için)
-  recordingKey  String?    // S3/R2 üzerindeki dosya yolu
-  
-  viewCount     Int      @default(0)  // İzlenme sayısı
-  downloadCount Int      @default(0)  // İndirilme sayısı
-  
-  participants  LiveSessionParticipant[]
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  @@index([teacherId])
-  @@index([classroomId])
-  @@index([status])
-}
-
-model LiveSessionParticipant {
-  id            String   @id @default(cuid())
-  
-  sessionId     String
-  session       LiveSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  
-  studentId     String
-  student       Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  
-  joinedAt      DateTime @default(now())
-  leftAt        DateTime?  // Ayrılma zamanı
-  duration      Int      @default(0)  // Toplam katılım süresi (saniye)
-  
-  @@unique([sessionId, studentId])
-  @@index([sessionId])
-  @@index([studentId])
-}
-
-model LiveKitConfig {
-  id          String   @id @default(cuid())
-  userId      String   @unique
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  apiKey      String   // Şifrelenmiş
-  apiSecret   String   // Şifrelenmiş
-  url         String?  // Opsiyonel, farklı bir sunucu ise (wss://...)
-  
-  // R2 / S3 Ayarları
-  s3Endpoint  String?
-  s3AccessKey String?  // Şifrelenmiş
-  s3SecretKey String?  // Şifrelenmiş
-  s3Bucket    String?
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-model CourseAttachment {
-  id        String   @id @default(cuid())
-  contentId String
-  content   CourseContent @relation(fields: [contentId], references: [id], onDelete: Cascade)
-
-  title     String?  // Opsiyonel özel başlık
-  projectId String?
-  project   Project? @relation(fields: [projectId], references: [id])
-  url       String?  // Harici PDF linki için
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([contentId])
-  @@index([projectId])
+  SCHEDULED
+  LIVE
+  ENDED
+  CANCELLED
 }

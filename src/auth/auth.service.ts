@@ -17,7 +17,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private configService: ConfigService,
-  ) {}
+  ) { }
 
   async register(dto: RegisterDto) {
     const existing = await this.prisma.user.findUnique({
@@ -68,12 +68,33 @@ export class AuthService {
       );
     }
 
-    // Role check based on appType
+    // Role check and Organization isolation based on appType
     if (dto.appType === 'STUDENT') {
       if (user.role !== Role.STUDENT && user.role !== Role.ADMIN) {
         throw new UnauthorizedException(
           'Bu uygulama sadece öğrenciler içindir. Lütfen eğitmen panelini kullanın.',
         );
+      }
+
+      // Organization isolation check
+      if (user.role === Role.STUDENT && dto.organizationId) {
+        // Find if this student's teacher is assigned to this organization
+        const student = await this.prisma.student.findUnique({
+          where: { userId: user.id },
+          include: {
+            teacher: true,
+          },
+        });
+
+        if (
+          !student ||
+          !student.teacher ||
+          student.teacher.organizationId !== dto.organizationId
+        ) {
+          throw new UnauthorizedException(
+            'Bu kuruma giriş yetkiniz bulunmamaktadır. Lütfen öğretmeninizin bağlı olduğu kurumu kontrol edin.',
+          );
+        }
       }
     } else if (dto.appType === 'TEACHER') {
       if (user.role !== Role.TEACHER && user.role !== Role.ADMIN) {
@@ -140,6 +161,7 @@ export class AuthService {
       role: user.role,
       tier: user.tier,
       hasCoachingAccess: user.hasCoachingAccess,
+      organizationId: user.organizationId,
     };
 
     const [accessToken, refreshToken] = await Promise.all([

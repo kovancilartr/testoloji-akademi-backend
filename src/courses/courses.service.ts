@@ -25,9 +25,14 @@ export class CoursesService {
     return student.id;
   }
 
-  async listCourses(instructorId: string) {
+  async listCourses(instructorId: string, organizationId?: string) {
     return await this.prisma.course.findMany({
-      where: { instructorId },
+      where: {
+        OR: [
+          { instructorId },
+          ...(organizationId ? [{ instructor: { organizationId } }] : []),
+        ],
+      },
       include: {
         _count: {
           select: { modules: true, enrollments: true },
@@ -51,11 +56,12 @@ export class CoursesService {
     });
   }
 
-  async createCourse(instructorId: string, dto: CreateCourseDto) {
+  async createCourse(instructorId: string, organizationId: string, dto: CreateCourseDto) {
     return await this.prisma.course.create({
       data: {
         ...dto,
         instructorId,
+        organizationId, // Inherit from teacher
       },
     });
   }

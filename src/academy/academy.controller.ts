@@ -23,19 +23,23 @@ import { CoachingAccessGuard } from '../auth/guards/coaching-access.guard';
 @UseGuards(JwtAuthGuard, RolesGuard, CoachingAccessGuard)
 @Roles(Role.TEACHER, Role.ADMIN)
 export class AcademyController {
-  constructor(private readonly academyService: AcademyService) {}
+  constructor(private readonly academyService: AcademyService) { }
 
   @Post('students')
   async createStudent(
     @GetUser('userId') userId: string,
+    @GetUser('organizationId') organizationId: string,
     @Body() dto: CreateStudentDto,
   ) {
-    return this.academyService.createStudent(userId, dto);
+    return this.academyService.createStudent(userId, organizationId, dto);
   }
 
   @Get('students')
-  async getStudents(@GetUser('userId') userId: string) {
-    return this.academyService.getStudents(userId);
+  async getStudents(
+    @GetUser('userId') userId: string,
+    @GetUser('organizationId') organizationId: string,
+  ) {
+    return this.academyService.getStudents(userId, organizationId);
   }
 
   @Get('students/:id')

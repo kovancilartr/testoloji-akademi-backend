@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { BullModule } from '@nestjs/bullmq';
 import { ScheduleModule } from '@nestjs/schedule';
@@ -25,6 +25,8 @@ import { FocusModule } from './focus/focus.module';
 import { LiveSessionsModule } from './live-sessions/live-sessions.module';
 import { FoldersModule } from './folders/folders.module';
 import { OmrModule } from './omr/omr.module';
+import { OrganizationsModule } from './organizations/organizations.module';
+import { TenantMiddleware } from './common/tenant.middleware';
 
 @Module({
   imports: [
@@ -74,8 +76,15 @@ import { OmrModule } from './omr/omr.module';
     LiveSessionsModule,
     FoldersModule,
     OmrModule,
+    OrganizationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule { }
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(TenantMiddleware)
+      .forRoutes('*');
+  }
+}

@@ -18,7 +18,7 @@ import { Role, SubscriptionTier } from '@prisma/client';
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(private readonly usersService: UsersService) { }
 
   @Get()
   @Roles(Role.ADMIN)
@@ -95,8 +95,11 @@ export class UsersController {
 
   @Get('teacher-stats')
   @Roles(Role.TEACHER, Role.ADMIN)
-  async getTeacherStats(@GetUser('userId') userId: string) {
-    return this.usersService.getTeacherStats(userId);
+  async getTeacherStats(
+    @GetUser('userId') userId: string,
+    @GetUser('organizationId') organizationId: string,
+  ) {
+    return this.usersService.getTeacherStats(userId, organizationId);
   }
 
   @Get('student-stats')
@@ -112,5 +115,14 @@ export class UsersController {
     @Body('teacherId') teacherId: string,
   ) {
     return this.usersService.assignTeacher(id, teacherId);
+  }
+
+  @Patch(':id/organization')
+  @Roles(Role.ADMIN)
+  async updateOrganization(
+    @Param('id') id: string,
+    @Body('organizationId') organizationId: string | null,
+  ) {
+    return this.usersService.updateUserOrganization(id, organizationId);
   }
 }
