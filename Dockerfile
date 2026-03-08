@@ -4,6 +4,9 @@ FROM node:20-alpine AS builder
 # Install openssl for Prisma
 RUN apk add --no-cache openssl
 
+# Override Coolify build-args that might break devDependencies
+ENV NODE_ENV=development
+
 WORKDIR /app
 
 # Copy package files
@@ -11,7 +14,8 @@ COPY package*.json ./
 COPY prisma ./prisma/
 
 # Install dependencies (including devDependencies for build)
-RUN npm install --include=dev
+# using --no-audit and --no-fund speeds up and reduces memory usage
+RUN npm install --include=dev --no-audit --no-fund
 
 # Copy source code
 COPY . .
