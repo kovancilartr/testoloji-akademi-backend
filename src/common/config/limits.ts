@@ -1,17 +1,17 @@
 import { SubscriptionTier, Role } from '@prisma/client';
 
 export const PROJECT_LIMITS: Record<string, number> = {
-  [SubscriptionTier.FREE]: 0,
-  [SubscriptionTier.BRONZ]: 1,
-  [SubscriptionTier.GUMUS]: 5,
-  [SubscriptionTier.ALTIN]: 15,
+  [SubscriptionTier.FREE]: 1,
+  [SubscriptionTier.BRONZ]: 5,
+  [SubscriptionTier.GUMUS]: 20,
+  [SubscriptionTier.ALTIN]: 50,
 };
 
 export const QUESTION_LIMITS: Record<string, number> = {
-  [SubscriptionTier.FREE]: 0,
-  [SubscriptionTier.BRONZ]: 15,
-  [SubscriptionTier.GUMUS]: 100,
-  [SubscriptionTier.ALTIN]: 200,
+  [SubscriptionTier.FREE]: 15,
+  [SubscriptionTier.BRONZ]: 50,
+  [SubscriptionTier.GUMUS]: 150,
+  [SubscriptionTier.ALTIN]: 450,
 };
 
 export const getProjectLimit = (role: Role, tier: SubscriptionTier) => {
